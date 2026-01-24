@@ -1,0 +1,71 @@
+# Dependencies
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Environment variables
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Runtime data
+logs
+*.log
+pids
+*.pid
+*.seed
+
+# Coverage directory used by tools like istanbul
+coverage/
+
+# Docker
+docker-compose.override.yml
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Temp
+tmp/
+temp/
+
+# S3/MinIO local data
+minio_data/
+postgres_data/
+
+# Production build
+dist/
+build/
+
+# Uploads
+uploads/
+
+# Database files (except migrations)
+*.db
+*.sqlite
+
+# SSL certificates
+*.pem
+*.key
+*.crt
+
+# Check installation script (temporary)
+check-installation.js
+
+# Docker volumes (development)
+volumes/
+
+# Test reports
+test-reports/
+
+# Package lock backup
+package-lock.json.bak

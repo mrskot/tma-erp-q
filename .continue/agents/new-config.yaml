@@ -1,0 +1,15 @@
+models:
+  - name: DeepSeek Coder
+    provider: openai
+    model: deepseek-coder
+    apiKey: "sk-064e53d4c6ee43768717afc5eaca8bdb"
+    apiBase: "https://api.deepseek.com"
+  
+tabAutocompleteModel:
+  name: DeepSeek Coder
+  provider: openai
+  model: deepseek-coder
+  apiKey: "sk-064e53d4c6ee43768717afc5eaca8bdb"
+  apiBase: "https://api.deepseek.com"
+
+contextLength: 128000

@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TMA-ERP Простой тест</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+        
+        .container {
+            background: white;
+            border-radius: 20px;
+            padding: 40px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            max-width: 500px;
+            width: 100%;
+        }
+        
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+            text-align: center;
+        }
+        
+        .subtitle {
+            color: #666;
+            text-align: center;
+            margin-bottom: 30px;
+        }
+        
+        .card {
+            background: #f8f9fa;
+            border-radius: 15px;
+            padding: 25px;
+            margin-bottom: 25px;
+        }
+        
+        .card h2 {
+            color: #444;
+            margin-bottom: 15px;
+            font-size: 18px;
+        }
+        
+        .btn {
+            background: #667eea;
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 10px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            width: 100%;
+            margin: 10px 0;
+            transition: all 0.3s;
+        }
+        
+        .btn:hover {
+            background: #5a67d8;
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(0,0,0,0.2);
+        }
+        
+        .btn-success {
+            background: #48bb78;
+        }
+        
+        .btn-success:hover {
+            background: #38a169;
+        }
+        
+        .btn-danger {
+            background: #f56565;
+        }
+        
+        .btn-danger:hover {
+            background: #e53e3e;
+        }
+        
+        .result {
+            background: white;
+            border: 2px solid #e2e8f0;
+            border-radius: 10px;
+            padding: 15px;
+            margin-top: 15px;
+            font-family: monospace;
+            font-size: 14px;
+            max-height: 200px;
+            overflow-y: auto;
+            white-space: pre-wrap;
+            word-break: break-all;
+        }
+        
+        .status {
+            display: inline-block;
+            padding: 5px 10px;
+            border-radius: 5px;
+            font-size: 12px;
+            font-weight: bold;
+            margin-left: 10px;
+        }
+        
+        .status-success {
+            background: #c6f6d5;
+            color: #22543d;
+        }
+        
+        .status-error {
+            background: #fed7d7;
+            color: #742a2a;
+        }
+        
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .hidden {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔧 TMA-ERP Тест API</h1>
+        <p class="subtitle">Проверка работы бэкенда и аутентификации</p>
+        
+        <div class="card">
+            <h2>1. Проверка сервера</h2>
+            <button class="btn" onclick="testHealth()">Проверить здоровье сервера</button>
+            <div id="health-result" class="result hidden"></div>
+        </div>
+        
+        <div class="card">
+            <h2>2. Проверка базы данных</h2>
+            <button class="btn" onclick="testDbHealth()">Проверить подключение к БД</button>
+            <div id="db-result" class="result hidden"></div>
+        </div>
+        
+        <div class="card">
+            <h2>3. Фейковая аутентификация Telegram</h2>
+            <button class="btn" onclick="testFakeAuth()">Получить фейковые данные Telegram</button>
+            <div id="fake-auth-result" class="result hidden"></div>
+        </div>
+        
+        <div class="card">
+            <h2>4. Аутентификация через PIN-код</h2>
+            <div style="margin-bottom: 15px;">
+                <label style="display: block; margin-bottom: 5px; color: #666;">Telegram ID:</label>
+                <input type="text" id="telegram-id" value="inspector_789" style="width: 100%; padding: 10px; border: 2px solid #e2e8f0; border-radius: 5px; font-size: 16px;">
+            </div>
+            <div style="margin-bottom: 15px;">
+                <label style="display: block; margin-bottom: 5px; color: #666;">PIN-код (4 цифры):</label>
+                <input type="password" id="pin-code" value="1234" style="width: 100%; padding: 10px; border: 2px solid #e2e8f0; border-radius: 5px; font-size: 16px;">
+            </div>
+            <button class="btn btn-success" onclick="testLogin()">Войти в систему</button>
+            <div id="login-result" class="result hidden"></div>
+        </div>
+        
+        <div class="card">
+            <h2>5. Получение профиля</h2>
+            <button class="btn" onclick="testProfile()" id="profile-btn" disabled>Получить профиль пользователя</button>
+            <div id="profile-result" class="result hidden"></div>
+        </div>
+        
+        <div class="card">
+            <h2>6. Выход из системы</h2>
+            <button class="btn btn-danger" onclick="testLogout()">Выйти из системы</button>
+            <div id="logout-result" class="result hidden"></div>
+        </div>
+        
+        <div style="text-align: center; margin-top: 30px; color: #666; font-size: 14px;">
+            <p>Тестовые данные из seeds:</p>
+            <p>• inspector_789 / 1234 - Инспектор</p>
+            <p>• admin_123 / 1234 - Администратор</p>
+            <p>• master_101 / 1234 - Мастер</p>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = '/api/v1';
+        
+        function showResult(elementId, data, isError = false) {
+            const element = document.getElementById(elementId);
+            const status = isError ? '<span class="status status-error">ОШИБКА</span>' : '<span class="status status-success">УСПЕХ</span>';
+            
+            element.innerHTML = `${status}<br><br>${JSON.stringify(data, null, 2)}`;
+            element.classList.remove('hidden');
+        }
+        
+        function showLoading(elementId) {
+            const element = document.getElementById(elementId);
+            element.innerHTML = '<div class="loading"></div> Загрузка...';
+            element.classList.remove('hidden');
+        }
+        
+        async function testHealth() {
+            showLoading('health-result');
+            try {
+                const response = await fetch(`${API_BASE}/health`);
+                const data = await response.json();
+                showResult('health-result', data, !response.ok);
+            } catch (error) {
+                showResult('health-result', { error: error.message }, true);
+            }
+        }
+        
+        async function testDbHealth() {
+            showLoading('db-result');
+            try {
+                const response = await fetch(`${API_BASE}/health/db`);
+                const data = await response.json();
+                showResult('db-result', data, !response.ok);
+            } catch (error) {
+                showResult('db-result', { error: error.message }, true);
+            }
+        }
+        
+        async function testFakeAuth() {
+            showLoading('fake-auth-result');
+            try {
+                const response = await fetch(`${API_BASE}/me`);
+                const data = await response.json();
+                showResult('fake-auth-result', data, !response.ok);
+            } catch (error) {
+                showResult('fake-auth-result', { error: error.message }, true);
+            }
+        }
+        
+        async function testLogin() {
+            const telegramId = document.getElementById('telegram-id').value;
+            const pinCode = document.getElementById('pin-code').value;
+            
+            showLoading('login-result');
+            try {
+                const response = await fetch(`${API_BASE}/users/auth/login`, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        telegram_id: telegramId,
+                        pin_code: pinCode
+                    })
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok && data.success) {
+                    // Сохраняем токен
+                    localStorage.setItem('jwt_token', data.data.token);
+                    // Включаем кнопку профиля
+                    document.getElementById('profile-btn').disabled = false;
+                }
+                
+                showResult('login-result', data, !response.ok);
+            } catch (error) {
+                showResult('login-result', { error: error.message }, true);
+            }
+        }
+        
+        async function testProfile() {
+            const token = localStorage.getItem('jwt_token');
+            if (!token) {
+                showResult('profile-result', { error: 'Токен не найден. Сначала выполните вход.' }, true);
+                return;
+            }
+            
+            showLoading('profile-result');
+            try {
+                const response = await fetch(`${API_BASE}/users/profile`, {
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    }
+                });
+                
+                const data = await response.json();
+                showResult('profile-result', data, !response.ok);
+            } catch (error) {
+                showResult('profile-result', { error: error.message }, true);
+            }
+        }
+        
+        function testLogout() {
+            localStorage.removeItem('jwt_token');
+            document.getElementById('profile-btn').disabled = true;
+            showResult('logout-result', { message: 'Токен удален из localStorage' });
+        }
+        
+        // Проверяем наличие токена при загрузке
+        window.addEventListener('load', () => {
+            const token = localStorage.getItem('jwt_token');
+            if (token) {
+                document.getElementById('profile-btn').disabled = false;
+            }
+        });
+    </script>
+</body>
+</html>
