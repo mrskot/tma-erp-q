@@ -23,6 +23,10 @@ class App {
         this.currentUserFilter = 'active';
         this.currentLotFilter = 'active';
 
+        // Модальные окна - будут инициализированы после загрузки DOM
+        this.userModal = null;
+        this.lotModal = null;
+
         // --- КОНФИГУРАЦИЯ РОЛЕЙ И ДОСТУПА ---
         this.ROLES_CONFIG = {
             admin: {
@@ -185,12 +189,12 @@ class App {
                     : `<button class="button-small button-secondary" data-user-id="${user.id}" data-action="edit" title="Редактировать">✏️</button>
                        <button class="button-small button-danger" data-user-id="${user.id}" data-action="delete" title="Деактивировать">🗑️</button>`;
                 return `<tr data-user-id="${user.id}" ${rowClass}>
-                    <td>${user.id}</td>
-                    <td>${user.first_name || ''} ${user.last_name || ''}</td>
-                    <td>${user.role ? (this.ROLES_CONFIG[user.role]?.name || user.role) : '-'}</td>
-                    <td>${user.telegram_id || '-'}</td>
-                    <td>${user.bitrix_id || '-'}</td>
-                    <td>${isInactive ? 'N/A' : (user.pin_code || '-')}</td>
+                    <td data-label="ID">${user.id}</td>
+                    <td data-label="Имя">${user.first_name || ''} ${user.last_name || ''}</td>
+                    <td data-label="Роль">${user.role ? (this.ROLES_CONFIG[user.role]?.name || user.role) : '-'}</td>
+                    <td data-label="Telegram ID">${user.telegram_id || '-'}</td>
+                    <td data-label="Bitrix ID">${user.bitrix_id || '-'}</td>
+                    <td data-label="PIN">${isInactive ? 'N/A' : (user.pin_code || '-')}</td>
                     <td class="actions">${actionButtons}</td>
                 </tr>`;
             }).join('');
@@ -235,12 +239,12 @@ class App {
                        <button class="button-small button-danger" data-lot-id="${lot.id}" data-action="deactivate-lot" title="Деактивировать">🗑️</button>`;
                 const distance = lot.distance_to_office ? `${lot.distance_to_office} м.` : '—';
                 return `<tr data-lot-id="${lot.id}" ${rowClass}>
-                    <td>${lot.id}</td>
-                    <td>${lot.name}</td>
-                    <td>${lot.code}</td>
-                    <td>${masterMap.get(lot.main_master_id) || 'Не назначен'}</td>
-                    <td>${lot.temp_master_id ? (masterMap.get(lot.temp_master_id) || 'Не назначен') : '—'}</td>
-                    <td>${distance}</td>
+                    <td data-label="ID">${lot.id}</td>
+                    <td data-label="Название">${lot.name}</td>
+                    <td data-label="Код">${lot.code}</td>
+                    <td data-label="Основной мастер">${masterMap.get(lot.main_master_id) || 'Не назначен'}</td>
+                    <td data-label="Временный мастер">${lot.temp_master_id ? (masterMap.get(lot.temp_master_id) || 'Не назначен') : '—'}</td>
+                    <td data-label="Расстояние">${distance}</td>
                     <td class="actions">${actionButtons}</td>
                 </tr>`;
             }).join('');
@@ -309,22 +313,26 @@ class App {
     // --- CRUD Пользователей ---
 
     openCreateUserModal() {
-        window.UserModal.show({
+        if (!this.userModal) return;
+        this.userModal.show({
             mode: 'create',
             onSave: async (userData) => {
                 await window.TMA_API.createUser(userData);
+                this.userModal.hide();
                 this.renderUsersPage();
             }
         });
     }
     openEditUserModal(userId) {
+        if (!this.userModal) return;
         const userToEdit = this.usersCache.find(u => u.id == userId);
         if (!userToEdit) return alert('Ошибка: пользователь не найден.');
-        window.UserModal.show({
+        this.userModal.show({
             mode: 'edit',
             userData: userToEdit,
             onSave: async (userData) => {
                 await window.TMA_API.updateUser(userId, userData);
+                this.userModal.hide();
                 this.renderUsersPage();
             }
         });
@@ -347,24 +355,28 @@ class App {
     // --- CRUD Участков ---
 
     openCreateLotModal() {
-        window.LotModal.show({
+        if (!this.lotModal) return;
+        this.lotModal.show({
             mode: 'create',
             masters: this.mastersCache,
             onSave: async (lotData) => {
                 await window.TMA_API.createLot(lotData);
+                this.lotModal.hide();
                 this.renderLotsPage();
             }
         });
     }
     openEditLotModal(lotId) {
+        if (!this.lotModal) return;
         const lotToEdit = this.lotsCache.find(l => l.id == lotId);
         if (!lotToEdit) return alert('Ошибка: участок не найден.');
-        window.LotModal.show({
+        this.lotModal.show({
             mode: 'edit',
             lotData: lotToEdit,
             masters: this.mastersCache,
             onSave: async (lotData) => {
                 await window.TMA_API.updateLot(lotId, lotData);
+                this.lotModal.hide();
                 this.renderLotsPage();
             }
         });
@@ -396,9 +408,16 @@ class App {
 }
 
 document.addEventListener('DOMContentLoaded', () => {
-    if (window.AuthManager && window.TMA_API) {
-        window.App = new App();
+    // Убедимся, что все классы загружены, прежде чем создавать экземпляры
+    if (window.AuthManager && window.TMA_API && typeof UserModal !== 'undefined' && typeof LotModal !== 'undefined') {
+        // Создаем главный экземпляр приложения
+        const app = new App();
+        
+        // Инициализируем модальные окна и передаем их в приложение
+        app.userModal = new UserModal();
+        app.lotModal = new LotModal();
+
     } else {
-        console.error('Не удалось инициализировать приложение: AuthManager или TMA_API отсутствуют.');
+        console.error('Не удалось инициализировать приложение: один или несколько ключевых компонентов отсутствуют.');
     }
 });

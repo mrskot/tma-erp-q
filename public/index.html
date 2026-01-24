@@ -3,62 +3,40 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>TMA-ERP</title>
-    <link rel="stylesheet" href="css/telegram.css">
-    <link rel="stylesheet" href="css/style.css">
-    <link rel="stylesheet" href="css/modal.css">
+    <title>TMA-ERP-Q Admin</title>
+    <link rel="stylesheet" href="/css/style.css">
 </head>
 <body>
-    <div id="app">
-        <!-- Экран загрузки -->
-        <div id="loading-screen">
-            <h2>Загрузка...</h2>
-        </div>
-
-        <!-- Экран входа по PIN-коду -->
-        <div id="login-screen" class="hidden">
-            <div class="container">
-                <h1>Вход в TMA-ERP</h1>
-                <p>Введите ваш PIN-код для доступа к системе.</p>
-                <form id="login-form">
-                    <input type="password" id="pin-input" name="pin" maxlength="4" pattern="\d{4}" inputmode="numeric" placeholder="----" required>
-                    <button type="submit" class="button">Войти</button>
-                </form>
-                <p id="login-error" class="error-message hidden"></p>
+    <div class="container">
+        <div class="card">
+            <h1>🚀 TMA-ERP-Q Admin Panel</h1>
+            <p>Система управления качеством на производстве</p>
+            
+            <div id="status">
+                <p>Проверяем соединение с API...</p>
+            </div>
+            
+            <div>
+                <a href="/api/v1/health" class="btn" target="_blank">Проверить API</a>
+                <a href="/telegram-simulator.html" class="btn">Тест Telegram</a>
             </div>
         </div>
-
-        <!-- Основное приложение (админ-панель) -->
-        <div id="main-app" class="hidden">
-            <header>
-                <div class="container">
-                    <h1>Админ-панель</h1>
-                    <div id="user-info"></div>
-                    <button id="logout-button" class="button button-secondary">Выйти</button>
-                </div>
-            </header>
-            <nav>
-                <div class="container">
-                    <a href="#" data-page="users">Пользователи</a>
-                    <a href="#" data-page="lots">Участки</a>
-                    <a href="#" data-page="products">Изделия</a>
-                </div>
-            </nav>
-            <main>
-                <div id="page-content" class="container">
-                    <!-- Сюда будет загружаться контент страниц -->
-                </div>
-            </main>
-        </div>
     </div>
-
-    <!-- Подключение скриптов -->
-    <script src="js/telegram-app.js"></script>
-    <script src="js/fake-telegram.js"></script>
-    <script src="js/api.js"></script>
-    <script src="js/auth.js"></script>
-    <script src="js/components/UserModal.js"></script>
-    <script src="js/components/LotModal.js"></script>
-    <script src="js/app.js"></script>
+    
+    <script>
+        fetch('/api/v1/health')
+            .then(r => r.json())
+            .then(data => {
+                document.getElementById('status').innerHTML = `
+                    <h3 style="color: green;">✅ API работает!</h3>
+                    <p>Статус: ${data.status}</p>
+                    <p>Время: ${new Date(data.timestamp).toLocaleString()}</p>
+                `;
+            })
+            .catch(err => {
+                document.getElementById('status').innerHTML = 
+                    '<h3 style="color: red;">❌ Ошибка подключения к API</h3>';
+            });
+    </script>
 </body>
 </html>

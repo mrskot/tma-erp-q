@@ -1,0 +1,253 @@
+/* --- Общая компоновка дашборда --- */
+#main-app {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    background-color: #f0f2f5; /* Светлый фон для контента */
+}
+
+#main-app header {
+    background-color: #ffffff;
+    border-bottom: 1px solid #dee2e6;
+    padding: 10px 15px;
+    flex-shrink: 0;
+}
+
+#main-app header .container {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+#user-info {
+    font-weight: 500;
+    color: #333;
+}
+
+#main-app nav {
+    background-color: #ffffff;
+    padding: 0 15px;
+    border-bottom: 1px solid #dee2e6;
+    overflow-x: auto; /* Для скролла на маленьких экранах */
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+
+#main-app nav .container {
+    padding: 10px 0;
+}
+
+#main-app nav a {
+    display: inline-block;
+    padding: 8px 12px;
+    margin-right: 10px;
+    text-decoration: none;
+    color: #495057;
+    border-radius: 8px;
+    font-weight: 500;
+    transition: background-color 0.2s ease, color 0.2s ease;
+}
+
+#main-app nav a.active {
+    background-color: #667eea;
+    color: #ffffff;
+}
+
+#page-content {
+    padding: 15px;
+    flex-grow: 1;
+    overflow-y: auto; /* Позволяет скроллить только контент */
+}
+
+/* --- Заголовок страницы и контролы --- */
+.page-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 15px;
+    flex-wrap: wrap; /* Перенос на маленьких экранах */
+}
+
+.page-header h3 {
+    margin: 0;
+    font-size: 20px;
+    color: #333;
+}
+
+.page-controls {
+    display: flex;
+    align-items: center;
+    gap: 10px; /* Расстояние между элементами */
+    margin-top: 10px; /* Отступ сверху при переносе */
+}
+
+.page-controls select {
+    padding: 8px 12px;
+    border-radius: 8px;
+    border: 1px solid #ced4da;
+    background-color: #fff;
+}
+
+/* --- Стили для таблиц --- */
+.crud-table {
+    width: 100%;
+    border-collapse: collapse;
+    background-color: #ffffff;
+    border-radius: 8px;
+    box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    overflow: hidden; /* Чтобы скругление работало */
+}
+
+.crud-table th,
+.crud-table td {
+    padding: 12px 15px;
+    text-align: left;
+    border-bottom: 1px solid #dee2e6;
+    vertical-align: middle;
+}
+
+/* Стилизация заголовков таблицы, как вы и просили */
+.crud-table th {
+    font-size: 11px;
+    font-weight: 600;
+    color: #888; /* Серый цвет */
+    text-transform: uppercase;
+    background-color: #f8f9fa;
+}
+
+.crud-table td {
+    font-size: 14px;
+    color: #333;
+}
+
+/* Последняя строка без нижней границы */
+.crud-table tr:last-child td {
+    border-bottom: none;
+}
+
+/* Стили для кнопок действий в таблице */
+.crud-table .actions {
+    white-space: nowrap;
+    text-align: right;
+}
+
+.button-small {
+    padding: 6px 10px;
+    font-size: 14px;
+    margin-left: 5px;
+}
+
+/* Стиль для деактивированных строк */
+.inactive-user td {
+    color: #999;
+    background-color: #fafafa;
+    font-style: italic;
+}
+
+/* =================================================================== */
+/*        АДАПТИВНЫЙ РЕЖИМ V2: ПРОДУМАННЫЕ КАРТОЧКИ ДЛЯ МОБИЛЬНЫХ      */
+/* =================================================================== */
+@media (max-width: 768px) {
+    .crud-table {
+        background-color: transparent;
+        box-shadow: none;
+    }
+
+    .crud-table thead {
+        display: none;
+    }
+
+    .crud-table tr {
+        display: block;
+        margin-bottom: 15px;
+        border-radius: 12px;
+        box-shadow: 0 5px 15px rgba(0,0,0,0.08);
+        border: 1px solid #e9ecef;
+        background-color: #fff;
+        padding: 15px;
+        padding-right: 60px; /* !!! ВАЖНО: Освобождаем место для кнопок !!! */
+        position: relative;
+    }
+
+    .crud-table td {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 8px 0;
+        border-bottom: 1px solid #f0f2f5;
+    }
+    
+    .crud-table tr td:last-child {
+        border-bottom: none;
+    }
+
+    .crud-table td:before {
+        content: attr(data-label);
+        font-weight: 500;
+        font-size: 14px;
+        color: #6c757d; /* Бледный цвет подписи */
+    }
+
+    /* --- Кастомизация полей --- */
+
+    /* Поля "Имя" и "Название" становятся заголовками карточек */
+    .crud-table td[data-label="Имя"],
+    .crud-table td[data-label="Название"] {
+        display: block;
+        font-size: 18px;
+        font-weight: 600;
+        color: #333;
+        padding-bottom: 10px;
+        margin-bottom: 5px;
+        border-bottom: 1px solid #e9ecef;
+    }
+    .crud-table td[data-label="Имя"]:before,
+    .crud-table td[data-label="Название"]:before {
+        display: none; /* Убираем подпись "data-label" */
+    }
+
+    /* ID становится маленьким и незаметным */
+    .crud-table td[data-label="ID"] {
+        display: block;
+        text-align: right;
+        font-size: 12px;
+        color: #adb5bd;
+        padding: 5px 0 0 0;
+        margin-top: 5px;
+        border-top: 1px solid #f0f2f5;
+        border-bottom: none;
+    }
+     .crud-table td[data-label="ID"]:before {
+        display: none; /* Убираем подпись "ID" */
+    }
+
+    /* Прячем PIN-код в карточке */
+    .crud-table td[data-label="PIN"] {
+        display: none;
+    }
+
+    /* --- Кнопки действий --- */
+    .crud-table .actions {
+        display: block;
+        position: absolute;
+        top: 15px;
+        right: 15px;
+    }
+     .crud-table .actions:before {
+        display: none;
+    }
+
+    .crud-table .actions .button-small {
+        display: block; /* Кнопки одна под другой */
+        width: 40px;
+        height: 40px;
+        padding: 0;
+        font-size: 20px;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+    }
+    .crud-table .actions .button-small:first-child {
+        margin-bottom: 5px;
+    }
+}

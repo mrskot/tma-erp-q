@@ -45,15 +45,19 @@ class TelegramApp {
         document.documentElement.style.setProperty('--tg-button-color', themeParams.button_color || '#2481cc');
         document.documentElement.style.setProperty('--tg-button-text-color', themeParams.button_text_color || '#ffffff');
         
-        // Устанавливаем цвет заголовка
-        this.tg.setHeaderColor(themeParams.bg_color || '#ffffff');
+        // Устанавливаем цвет заголовка, если версия поддерживает
+        if (this.tg.isVersionAtLeast('6.1')) {
+            this.tg.setHeaderColor(themeParams.bg_color || '#ffffff');
+        }
         
-        // Устанавливаем цвет фона
-        this.tg.setBackgroundColor(themeParams.bg_color || '#ffffff');
+        // Устанавливаем цвет фона, если версия поддерживает
+        if (this.tg.isVersionAtLeast('6.4')) {
+            this.tg.setBackgroundColor(themeParams.bg_color || '#ffffff');
+        }
     }
 
     setupBackButton() {
-        if (!this.isTelegram) return;
+        if (!this.isTelegram || !this.tg.isVersionAtLeast('6.1')) return;
 
         // Показываем кнопку "Назад" когда нужно
         const showBackButton = () => {

@@ -2,13 +2,103 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>Redirecting...</title>
-    <meta http-equiv="refresh" content="0; url=/index.html">
-    <script type="text/javascript">
-        window.location.href = "/index.html";
-    </script>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TMA-ERP-Q Simulator</title>
+    <style>
+        :root {
+            --phone-width: 390px;
+            --phone-height: 844px;
+            --phone-border-radius: 50px;
+            --phone-padding: 14px;
+            --notch-height: 30px;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background-color: #f0f2f5;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 20px;
+        }
+
+        .simulator-header {
+            margin-bottom: 20px;
+            text-align: center;
+        }
+
+        .simulator-header h1 {
+            font-size: 24px;
+            color: #333;
+        }
+
+        .simulator-header p {
+            color: #666;
+            font-size: 16px;
+        }
+        
+        .phone-frame {
+            width: var(--phone-width);
+            height: var(--phone-height);
+            background: #111;
+            border-radius: var(--phone-border-radius);
+            padding: var(--phone-padding);
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3), 
+                        inset 0 0 2px 2px #333,
+                        inset 0 0 0 6px #888;
+        }
+        
+        .phone-screen {
+            background: #fff;
+            width: 100%;
+            height: 100%;
+            border-radius: calc(var(--phone-border-radius) - var(--phone-padding));
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+        }
+        
+        .notch {
+            position: absolute;
+            top: 0;
+            left: 50%;
+            transform: translateX(-50%);
+            width: 45%;
+            height: var(--notch-height);
+            background: #111;
+            border-bottom-left-radius: 20px;
+            border-bottom-right-radius: 20px;
+            z-index: 10;
+        }
+        
+        iframe {
+            width: 100%;
+            height: 100%;
+            border: none;
+            padding-top: var(--notch-height); /* Ensure content is not under the notch */
+        }
+    </style>
 </head>
 <body>
-    <p>Если вас не перенаправило автоматически, <a href="/index.html">нажмите здесь</a>.</p>
+    <div class="simulator-header">
+        <h1>📱 Telegram Mini App Simulator</h1>
+        <p>Это симулятор для локальной разработки и тестирования</p>
+    </div>
+
+    <div class="phone-frame">
+        <div class="phone-screen">
+            <div class="notch"></div>
+            <iframe src="/telegram/index.html" title="Telegram Mini App"></iframe>
+        </div>
+    </div>
 </body>
 </html>
