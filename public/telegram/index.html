@@ -122,6 +122,66 @@
                 </form>
             </div>
         </div>
+
+        <!-- Модальное окно для Изделий -->
+        <div id="product-modal" class="modal">
+            <div class="modal-content">
+                <span class="close">&times;</span>
+                <h2 class="modal-title">Создать изделие</h2>
+                <form id="product-form">
+                    <input type="hidden" name="id">
+                    <div class="form-group">
+                        <label for="product-name">Название:</label>
+                        <input type="text" id="product-name" name="name" required>
+                    </div>
+                    <div class="form-group">
+                        <label for="product-type">Тип:</label>
+                        <select id="product-type" name="type" required>
+                            <option value="finished">Готовое изделие</option>
+                            <option value="semi_finished">Полуфабрикат</option>
+                            <option value="assembly">Сборочная единица</option>
+                            <option value="part">Деталь</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="product-lot-id">Участок:</label>
+                        <select id="product-lot-id" name="lot_id">
+                            <!-- Опции участков будут загружены динамически -->
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="product-previous-lot-id">Предыдущий участок:</label>
+                        <select id="product-previous-lot-id" name="previous_lot_id">
+                            <!-- Опции участков будут загружены динамически -->
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="product-next-lot-id">Следующий участок:</label>
+                        <select id="product-next-lot-id" name="next_lot_id">
+                            <!-- Опции участков будут загружены динамически -->
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="product-default-inspector-id">Контролёр по умолчанию:</label>
+                        <select id="product-default-inspector-id" name="default_inspector_id">
+                            <!-- Опции контролёров будут загружены динамически -->
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label for="product-inspection-time">Время на приёмку (мин):</label>
+                        <input type="number" id="product-inspection-time" name="inspection_time_minutes" min="1" placeholder="30">
+                    </div>
+                     <div class="form-group">
+                        <label>Чек-лист:</label>
+                        <div id="product-checklist-container" class="checklist-container">
+                            <!-- Элементы чек-листа будут добавлены сюда -->
+                        </div>
+                        <button type="button" id="add-checklist-item-btn" class="button button-secondary">Добавить пункт</button>
+                    </div>
+                    <button type="submit" class="button">Сохранить</button>
+                </form>
+            </div>
+        </div>
     </div>
     <!-- === Конец модальных окон === -->
 
@@ -131,6 +191,7 @@
     <!-- Компоненты -->
     <script src="/js/components/UserModal.js"></script>
     <script src="/js/components/LotModal.js"></script>
+    <script src="/js/components/ProductModal.js"></script>
     <!-- Основная логика -->
     <script src="/js/auth.js"></script>
     <script src="/js/app.js"></script>

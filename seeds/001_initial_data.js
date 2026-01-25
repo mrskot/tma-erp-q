@@ -155,10 +155,10 @@ exports.seed = async function(knex) {
       lot_id: lots[0].id, // Цех сборки
       default_inspector_id: users[2].id, // Мария Сидорова - контролёр по умолчанию
       checklist: JSON.stringify([
-        'Проверить маркировку',
-        'Проверить крепление узлов',
-        'Проверить изоляцию',
-        'Проверить покраску',
+        { task: 'Проверить маркировку' },
+        { task: 'Проверить крепление узлов' },
+        { task: 'Проверить изоляцию' },
+        { task: 'Проверить покраску' },
       ]),
       inspection_time_minutes: 45,
       is_active: true,
@@ -173,9 +173,9 @@ exports.seed = async function(knex) {
       previous_lot_id: null,
       next_lot_id: lots[0].id, // Далее в цех сборки
       checklist: JSON.stringify([
-        'Проверить количество витков',
-        'Проверить изоляцию',
-        'Проверить маркировку выводов',
+        { task: 'Проверить количество витков' },
+        { task: 'Проверить изоляцию' },
+        { task: 'Проверить маркировку выводов' },
       ]),
       inspection_time_minutes: 30,
       is_active: true,
@@ -188,9 +188,9 @@ exports.seed = async function(knex) {
       lot_id: lots[0].id, // Цех сборки
       default_inspector_id: users[2].id, // Мария Сидорова - контролёр по умолчанию
       checklist: JSON.stringify([
-        'Проверить геометрию',
-        'Проверить сварные швы',
-        'Проверить отверстия',
+        { task: 'Проверить геометрию' },
+        { task: 'Проверить сварные швы' },
+        { task: 'Проверить отверстия' },
       ]),
       inspection_time_minutes: 25,
       is_active: true,
@@ -203,9 +203,9 @@ exports.seed = async function(knex) {
       lot_id: lots[3].id, // Склад
       default_inspector_id: users[3].id, // Сергей Васильев - контролёр по умолчанию
       checklist: JSON.stringify([
-        'Проверить резьбу',
-        'Проверить размер',
-        'Проверить марку стали',
+        { task: 'Проверить резьбу' },
+        { task: 'Проверить размер' },
+        { task: 'Проверить марку стали' },
       ]),
       inspection_time_minutes: 5,
       is_active: true,

@@ -1,15 +1,25 @@
 const db = require('../config/database');
 
 class Product {
-  static async findById(id) {
-    return db('products')
-      .where({ id, is_active: true })
-      .first();
+  static async findById(id, includeInactive = false) {
+    const query = db('products').where({ id });
+    if (!includeInactive) {
+      query.andWhere({ is_active: true });
+    }
+    return query.first();
   }
 
-  static async findAll(limit = 100, offset = 0) {
-    return db('products')
-      .where({ is_active: true })
+  static async findAll(limit = 100, offset = 0, status = 'active') {
+    const query = db('products');
+
+    if (status === 'active') {
+      query.where({ is_active: true });
+    } else if (status === 'inactive') {
+      query.where({ is_active: false });
+    }
+    // Если status === 'all', фильтр is_active не применяется
+
+    return query
       .orderBy('name', 'asc')
       .limit(limit)
       .offset(offset);
@@ -50,11 +60,26 @@ class Product {
       });
   }
 
-  static async count() {
-    const result = await db('products')
-      .where({ is_active: true })
-      .count('id as count')
-      .first();
+  static async restore(id) {
+    return db('products')
+      .where({ id })
+      .update({
+        is_active: true,
+        updated_at: db.fn.now(),
+      });
+  }
+
+  static async count(status = 'active') {
+    const query = db('products');
+
+    if (status === 'active') {
+      query.where({ is_active: true });
+    } else if (status === 'inactive') {
+      query.where({ is_active: false });
+    }
+    // Если status === 'all', фильтр is_active не применяется
+    
+    const result = await query.count('id as count').first();
     return parseInt(result.count, 10);
   }
 

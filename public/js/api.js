@@ -185,6 +185,52 @@ class TMA_API {
         throw new Error(error.message || 'Failed to reactivate lot');
     }
 
+    // --- Изделия (Products) ---
+    async getProducts(status = 'active') {
+        const response = await this.request(`/products?status=${status}`);
+        if (response.ok) return await response.json();
+        throw new Error('Failed to get products');
+    }
+
+    async createProduct(productData) {
+        const response = await this.request('/products', {
+            method: 'POST',
+            body: JSON.stringify(productData)
+        });
+        if (response.ok) return await response.json();
+        const error = await response.json();
+        throw new Error(error.message || 'Failed to create product');
+    }
+
+    async updateProduct(productId, productData) {
+        const response = await this.request(`/products/${productId}`, {
+            method: 'PUT',
+            body: JSON.stringify(productData)
+        });
+        if (response.ok) return await response.json();
+        const error = await response.json();
+        throw new Error(error.message || 'Failed to update product');
+    }
+
+    async deleteProduct(productId) {
+        const response = await this.request(`/products/${productId}`, {
+            method: 'DELETE'
+        });
+        if (response.ok) return await response.json();
+        const error = await response.json();
+        throw new Error(error.message || 'Failed to delete product');
+    }
+    
+    async reactivateProduct(productId) {
+        const response = await this.request(`/products/${productId}/restore`, {
+            method: 'POST'
+        });
+        if (response.ok) return await response.json();
+        const error = await response.json();
+        throw new Error(error.message || 'Failed to reactivate product');
+    }
+
+
     // --- Другие методы ---
     
     // ...

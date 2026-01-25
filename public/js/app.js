@@ -19,13 +19,17 @@ class App {
         // Кэши и фильтры
         this.usersCache = [];
         this.lotsCache = [];
+        this.productsCache = [];
         this.mastersCache = [];
+        this.inspectorsCache = [];
         this.currentUserFilter = 'active';
         this.currentLotFilter = 'active';
+        this.currentProductFilter = 'active';
 
         // Модальные окна - будут инициализированы после загрузки DOM
         this.userModal = null;
         this.lotModal = null;
+        this.productModal = null;
 
         // --- КОНФИГУРАЦИЯ РОЛЕЙ И ДОСТУПА ---
         this.ROLES_CONFIG = {
@@ -268,7 +272,90 @@ class App {
         }
     }
 
-    async renderProductsPage() { this.pageContent.innerHTML = `<h3>Управление изделиями</h3><p>В разработке.</p>`; }
+        async renderProductsPage() {
+        this.pageContent.innerHTML = `<h3>Управление изделиями</h3><p>Загрузка...</p>`;
+        try {
+            const [productsResponse, lotsResponse, inspectorsResponse] = await Promise.all([
+                window.TMA_API.getProducts(this.currentProductFilter),
+                window.TMA_API.getLots('all'), // Загружаем все участки для селектора
+                window.TMA_API.getUsersByRole('inspector') // Загружаем контролёров
+            ]);
+
+            if (!productsResponse.success || !Array.isArray(productsResponse.data)) {
+                throw new Error(productsResponse.message || 'Не удалось загрузить изделия.');
+            }
+             if (!lotsResponse.success || !Array.isArray(lotsResponse.data)) {
+                throw new Error(lotsResponse.message || 'Не удалось загрузить участки для фильтра.');
+            }
+            if (!inspectorsResponse.success || !Array.isArray(inspectorsResponse.data)) {
+                throw new Error(inspectorsResponse.message || 'Не удалось загрузить контролёров.');
+            }
+
+            this.productsCache = productsResponse.data;
+            this.lotsCache = lotsResponse.data;
+            this.inspectorsCache = inspectorsResponse.data;
+
+            const lotMap = new Map(this.lotsCache.map(l => [l.id, l.name]));
+            
+            const productTypes = {
+                finished: 'Готовое изделие',
+                semi_finished: 'Полуфабрикат',
+                assembly: 'Сборочная единица',
+                part: 'Деталь'
+            };
+
+            let tableRows = this.productsCache.map(product => {
+                const isInactive = !product.is_active;
+                const rowClass = isInactive ? 'class="inactive-user"' : '';
+                const actionButtons = isInactive 
+                    ? `<button class="button-small button-success" data-product-id="${product.id}" data-action="restore-product" title="Восстановить">🔄️</button>`
+                    : `<button class="button-small button-secondary" data-product-id="${product.id}" data-action="edit-product" title="Редактировать">✏️</button>
+                       <button class="button-small button-danger" data-product-id="${product.id}" data-action="deactivate-product" title="Деактивировать">🗑️</button>`;
+                
+                return `<tr data-product-id="${product.id}" ${rowClass}>
+                    <td data-label="ID">${product.id}</td>
+                    <td data-label="Название">${product.name}</td>
+                    <td data-label="Тип">${productTypes[product.product_type] || product.product_type}</td>
+                    <td data-label="Участок">${lotMap.get(product.lot_id) || 'Не привязан'}</td>
+                    <td data-label="Чек-лист">${product.checklist && product.checklist.length > 0 ? `✅ (${product.checklist.length} п.)` : '—'}</td>
+                    <td class="actions">${actionButtons}</td>
+                </tr>`;
+            }).join('');
+
+            if (this.productsCache.length === 0) {
+                tableRows = `<tr><td colspan="6">Изделия с данным фильтром не найдены.</td></tr>`;
+            }
+
+            this.pageContent.innerHTML = `
+                <div class="page-header">
+                    <h3>Управление изделиями</h3>
+                    <div class="page-controls">
+                        <select id="product-status-filter">
+                            <option value="active" ${this.currentProductFilter === 'active' ? 'selected' : ''}>Активные</option>
+                            <option value="inactive" ${this.currentProductFilter === 'inactive' ? 'selected' : ''}>Деактивированные</option>
+                            <option value="all" ${this.currentProductFilter === 'all' ? 'selected' : ''}>Все</option>
+                        </select>
+                        <button id="create-product-btn" class="button">✨ Создать изделие</button>
+                    </div>
+                </div>
+                <table class="crud-table">
+                    <thead>
+                        <tr>
+                            <th>ID</th>
+                            <th>Название</th>
+                            <th>Тип</th>
+                            <th>Участок</th>
+                            <th>Чек-лист</th>
+                            <th>Действия</th>
+                        </tr>
+                    </thead>
+                    <tbody>${tableRows}</tbody>
+                </table>`;
+        } catch (error) {
+            console.error('Ошибка при загрузке изделий:', error);
+            this.pageContent.innerHTML = `<h3>Управление изделиями</h3><p class="error-message">Ошибка: ${error.message}</p>`;
+        }
+    }
     async renderApplicationsPage() { this.pageContent.innerHTML = `<h3>Заявки</h3><p>В разработке.</p>`; }
     async renderDiscrepanciesPage() { this.pageContent.innerHTML = `<h3>Несоответствия</h3><p>В разработке.</p>`; }
 
@@ -278,12 +365,14 @@ class App {
         const target = event.target;
         if (target.matches('#create-user-btn')) { this.openCreateUserModal(); return; }
         if (target.matches('#create-lot-btn')) { this.openCreateLotModal(); return; }
+        if (target.matches('#create-product-btn')) { this.openCreateProductModal(); return; }
 
         const actionButton = target.closest('button[data-action]');
         if (actionButton) {
             const action = actionButton.dataset.action;
             const userId = actionButton.dataset.userId;
             const lotId = actionButton.dataset.lotId;
+            const productId = actionButton.dataset.productId;
 
             if (userId) {
                 if (action === 'edit') this.openEditUserModal(userId);
@@ -294,6 +383,11 @@ class App {
                 if (action === 'edit-lot') this.openEditLotModal(lotId);
                 if (action === 'deactivate-lot') this.handleDeactivateLot(lotId);
                 if (action === 'restore-lot') this.handleReactivateLot(lotId);
+            }
+            if (productId) {
+                if (action === 'edit-product') this.openEditProductModal(productId);
+                if (action === 'deactivate-product') this.handleDeactivateProduct(productId);
+                if (action === 'restore-product') this.handleReactivateProduct(productId);
             }
         }
     }
@@ -307,6 +401,10 @@ class App {
         if (target.matches('#lot-status-filter')) {
             this.currentLotFilter = target.value;
             this.renderLotsPage();
+        }
+        if (target.matches('#product-status-filter')) {
+            this.currentProductFilter = target.value;
+            this.renderProductsPage();
         }
     }
 
@@ -395,6 +493,63 @@ class App {
             catch (e) { alert(`Ошибка: ${e.message}`); }
         }
     }
+
+    // --- CRUD Изделий ---
+
+    openCreateProductModal() {
+        if (!this.productModal) return;
+        this.productModal.show({
+            mode: 'create',
+            lots: this.lotsCache,
+            inspectors: this.inspectorsCache,
+            onSave: async (productData) => {
+                await window.TMA_API.createProduct(productData);
+                this.productModal.hide();
+                this.renderProductsPage();
+            }
+        });
+    }
+
+    openEditProductModal(productId) {
+        if (!this.productModal) return;
+        const productToEdit = this.productsCache.find(p => p.id == productId);
+        if (!productToEdit) return alert('Ошибка: изделие не найдено.');
+        this.productModal.show({
+            mode: 'edit',
+            productData: productToEdit,
+            lots: this.lotsCache,
+            inspectors: this.inspectorsCache,
+            onSave: async (productData) => {
+                await window.TMA_API.updateProduct(productId, productData);
+                this.productModal.hide();
+                this.renderProductsPage();
+            }
+        });
+    }
+
+    async handleDeactivateProduct(productId) {
+        const product = this.productsCache.find(p => p.id == productId);
+        if (confirm(`Деактивировать изделие "${product.name}"?`)) {
+            try {
+                await window.TMA_API.deleteProduct(productId);
+                this.renderProductsPage();
+            } catch (e) {
+                alert(`Ошибка: ${e.message}`);
+            }
+        }
+    }
+
+    async handleReactivateProduct(productId) {
+        const product = this.productsCache.find(p => p.id == productId);
+        if (confirm(`Восстановить изделие "${product.name}"?`)) {
+            try {
+                await window.TMA_API.reactivateProduct(productId);
+                this.renderProductsPage();
+            } catch (e) {
+                alert(`Ошибка: ${e.message}`);
+            }
+        }
+    }
     
     // --- Вспомогательные функции ---
     showLoginError(message) {
@@ -409,13 +564,15 @@ class App {
 
 document.addEventListener('DOMContentLoaded', () => {
     // Убедимся, что все классы загружены, прежде чем создавать экземпляры
-    if (window.AuthManager && window.TMA_API && typeof UserModal !== 'undefined' && typeof LotModal !== 'undefined') {
+    if (window.AuthManager && window.TMA_API && typeof UserModal !== 'undefined' && typeof LotModal !== 'undefined' && typeof ProductModal !== 'undefined') {
         // Создаем главный экземпляр приложения
         const app = new App();
         
         // Инициализируем модальные окна и передаем их в приложение
         app.userModal = new UserModal();
         app.lotModal = new LotModal();
+        app.productModal = new ProductModal();
+
 
     } else {
         console.error('Не удалось инициализировать приложение: один или несколько ключевых компонентов отсутствуют.');
