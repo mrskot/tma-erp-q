@@ -1,3 +1,4 @@
+// public/js/api.js
 // API клиент для TMA-ERP
 class TMA_API {
     constructor() {
@@ -99,7 +100,9 @@ class TMA_API {
 
     async getUsersByRole(role) {
         const response = await this.request(`/users/role/${role}`);
-        if (response.ok) return await response.json();
+        if (response.ok) {
+            return await response.json();
+        }
         throw new Error(`Failed to get users with role ${role}`);
     }
 
@@ -147,6 +150,17 @@ class TMA_API {
         throw new Error('Failed to get lots');
     }
 
+    async getLotsWithMasters(status = 'active') {
+        const response = await this.request(`/lots/with-masters?status=${status}`);
+        if (response.ok) {
+            const result = await response.json();
+            if (result.success) {
+                return result.data || [];
+            }
+        }
+        throw new Error('Failed to get lots with masters');
+    }
+
     async createLot(lotData) {
         const response = await this.request('/lots', {
             method: 'POST',
@@ -188,7 +202,9 @@ class TMA_API {
     // --- Изделия (Products) ---
     async getProducts(status = 'active') {
         const response = await this.request(`/products?status=${status}`);
-        if (response.ok) return await response.json();
+        if (response.ok) {
+            return await response.json();
+        }
         throw new Error('Failed to get products');
     }
 
@@ -230,10 +246,53 @@ class TMA_API {
         throw new Error(error.message || 'Failed to reactivate product');
     }
 
+    // --- Заявки (Applications) ---
 
-    // --- Другие методы ---
+    async getApplications(filters = {}) {
+        const query = new URLSearchParams(filters).toString();
+        const response = await this.request(`/applications?${query}`);
+        if (response.ok) return await response.json();
+        throw new Error('Failed to get applications');
+    }
+
+    async createBatchApplications(batchData) {
+        const response = await this.request('/applications/batch', {
+            method: 'POST',
+            body: JSON.stringify(batchData)
+        });
+        if (response.ok) return await response.json();
+        const error = await response.json();
+        throw new Error(error.message || 'Failed to create batch applications');
+    }
+
+    async updateApplication(applicationId, applicationData) {
+        const response = await this.request(`/applications/${applicationId}`, {
+            method: 'PUT',
+            body: JSON.stringify(applicationData)
+        });
+        if (response.ok) return await response.json();
+        const error = await response.json();
+        throw new Error(error.message || 'Failed to update application');
+    }
     
-    // ...
+    async updateApplicationStatus(applicationId, status) {
+        const response = await this.request(`/applications/${applicationId}/status`, {
+            method: 'PATCH',
+            body: JSON.stringify({ status })
+        });
+        if (response.ok) return await response.json();
+        const error = await response.json();
+        throw new Error(error.message || 'Failed to update application status');
+    }
+
+    async deleteApplication(applicationId) {
+        const response = await this.request(`/applications/${applicationId}`, {
+            method: 'DELETE'
+        });
+        if (response.ok) return await response.json();
+        const error = await response.json();
+        throw new Error(error.message || 'Failed to delete application');
+    }
 }
 
 window.TMA_API = new TMA_API();

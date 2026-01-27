@@ -171,7 +171,9 @@ class UserService {
         first_name: user.first_name,
         last_name: user.last_name,
         username: user.username,
-        phone_number: user.phone_number
+        phone_number: user.phone_number,
+        role: user.role,
+        is_active: user.is_active
       }));
     } catch (error) {
       throw new Error(`Ошибка получения пользователей по роли: ${error.message}`);

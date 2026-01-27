@@ -84,9 +84,11 @@ class LotController {
       // Валидация
       const errors = validationResult(req);
       if (!errors.isEmpty()) {
+        console.error('Validation errors for creating lot:', errors.array());
         return res.status(400).json({
           success: false,
-          errors: errors.array()
+          errors: errors.array(),
+          message: 'Ошибка валидации: ' + errors.array().map(e => e.msg).join(', ')
         });
       }
 
@@ -282,6 +284,23 @@ class LotController {
       });
     }
   }
+
+  static async getLotsWithMasters(req, res) {
+    try {
+        const { status } = req.query;
+        // Используем существующий LotService, который умеет обогащать данные
+        const result = await LotService.getAllLots(1000, 0, true, status);
+        res.json({
+            success: true,
+            data: result.lots
+        });
+    } catch (error) {
+        res.status(500).json({
+            success: false,
+            message: error.message
+        });
+    }
+  }  
 }
 
 module.exports = LotController;

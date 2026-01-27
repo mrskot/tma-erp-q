@@ -36,9 +36,21 @@ class LotModal {
         const formData = new FormData(this.form);
         const data = Object.fromEntries(formData.entries());
 
+        console.log('Lot data before processing:', data);
+
         // Преобразуем числовые поля
         data.main_master_id = data.main_master_id ? parseInt(data.main_master_id, 10) : null;
-        data.distance_to_office = data.distance_to_office ? parseFloat(data.distance_to_office) : null;
+        data.distance_to_office = (data.distance_to_office && data.distance_to_office !== '') ? parseFloat(data.distance_to_office) : null;
+        data.priority = data.priority ? parseInt(data.priority, 10) : 5; // Значение по умолчанию
+
+        // Удаляем пустой ID при создании
+        if (!data.id || data.id === '') {
+            delete data.id;
+        } else {
+            data.id = parseInt(data.id, 10);
+        }
+
+        console.log('Lot data after processing (sending):', data);
 
         if (this.onSave) {
             const submitButton = this.form.querySelector('button[type="submit"]');

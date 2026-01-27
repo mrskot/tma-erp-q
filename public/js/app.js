@@ -30,6 +30,7 @@ class App {
         this.userModal = null;
         this.lotModal = null;
         this.productModal = null;
+        this.applicationModal = null; // Добавляем модальное окно для заявок"
 
         // --- КОНФИГУРАЦИЯ РОЛЕЙ И ДОСТУПА ---
         this.ROLES_CONFIG = {
@@ -78,6 +79,7 @@ class App {
         this.nav.addEventListener('click', (e) => this.handleNavClick(e));
         this.pageContent.addEventListener('click', (e) => this.handlePageContentClick(e));
         this.pageContent.addEventListener('change', (e) => this.handlePageContentChange(e));
+        this.currentApplicationFilter = 'all'; // Добавляем фильтр для заявок
         this.updateViewState();
     }
 
@@ -356,7 +358,81 @@ class App {
             this.pageContent.innerHTML = `<h3>Управление изделиями</h3><p class="error-message">Ошибка: ${error.message}</p>`;
         }
     }
-    async renderApplicationsPage() { this.pageContent.innerHTML = `<h3>Заявки</h3><p>В разработке.</p>`; }
+        async renderApplicationsPage() {
+        this.pageContent.innerHTML = `<h3>Заявки</h3><p>Загрузка...</p>`;
+        try {
+            const filters = {};
+            if (this.currentApplicationFilter && this.currentApplicationFilter !== 'all') {
+                filters.status = this.currentApplicationFilter;
+            }
+            const response = await window.TMA_API.getApplications(filters);
+            if (!response.success || !Array.isArray(response.data)) throw new Error(response.message || 'Не удалось загрузить заявки.');
+            
+            const applications = response.data;
+            
+            // Статусы заявок
+            const statusMap = {
+                'new': 'Новая',
+                'assigned': 'Назначена',
+                'in_progress': 'В работе',
+                'accepted': 'Принята',
+                'rejected': 'Отклонена'
+            };
+            
+            let tableRows = applications.map(app => {
+                const statusClass = `status-${app.status}`;
+                return `<tr data-application-id="${app.id}">
+                    <td data-label="Номер">${app.application_number || '—'}</td>
+                    <td data-label="Изделие">${app.product_name || '—'}</td>
+                    <td data-label="Участок">${app.lot_name || '—'}</td>
+                    <td data-label="Мастер">${app.master_name || '—'}</td>
+                    <td data-label="Контролёр">${app.inspector_name || '—'}</td>
+                    <td data-label="Статус"><span class="status-badge ${statusClass}">${statusMap[app.status] || app.status}</span></td>
+                    <td data-label="Кол-во">${app.quantity || 1}</td>
+                    <td class="actions">
+                        <button class="button-small button-secondary" data-application-id="${app.id}" data-action="view-application" title="Просмотр">👁️</button>
+                        <button class="button-small button-danger" data-application-id="${app.id}" data-action="delete-application" title="Удалить">🗑️</button>
+                    </td>
+                </tr>`;
+            }).join('');
+            
+            if (applications.length === 0) tableRows = `<tr><td colspan="8">Заявки не найдены.</td></tr>`;
+            
+            this.pageContent.innerHTML = `
+                <div class="page-header">
+                    <h3>Заявки</h3>
+                    <div class="page-controls">
+                        <select id="application-status-filter">
+                            <option value="all" ${this.currentApplicationFilter === 'all' ? 'selected' : ''}>Все статусы</option>
+                            <option value="new" ${this.currentApplicationFilter === 'new' ? 'selected' : ''}>Новые</option>
+                            <option value="assigned" ${this.currentApplicationFilter === 'assigned' ? 'selected' : ''}>Назначенные</option>
+                            <option value="in_progress" ${this.currentApplicationFilter === 'in_progress' ? 'selected' : ''}>В работе</option>
+                            <option value="accepted" ${this.currentApplicationFilter === 'accepted' ? 'selected' : ''}>Принятые</option>
+                            <option value="rejected" ${this.currentApplicationFilter === 'rejected' ? 'selected' : ''}>Отклоненные</option>
+                        </select>
+                        <button id="create-application-btn" class="button">✨ Создать заявку</button>
+                    </div>
+                </div>
+                <table class="crud-table">
+                    <thead>
+                        <tr>
+                            <th>Номер</th>
+                            <th>Изделие</th>
+                            <th>Участок</th>
+                            <th>Мастер</th>
+                            <th>Контролёр</th>
+                            <th>Статус</th>
+                            <th>Кол-во</th>
+                            <th>Действия</th>
+                        </tr>
+                    </thead>
+                    <tbody>${tableRows}</tbody>
+                </table>`;
+        } catch (error) {
+            console.error('Ошибка при загрузке заявок:', error);
+            this.pageContent.innerHTML = `<h3>Заявки</h3><p class="error-message">Ошибка: ${error.message}</p>`;
+        }
+    }
     async renderDiscrepanciesPage() { this.pageContent.innerHTML = `<h3>Несоответствия</h3><p>В разработке.</p>`; }
 
     // --- Обработчики событий ---
@@ -366,6 +442,7 @@ class App {
         if (target.matches('#create-user-btn')) { this.openCreateUserModal(); return; }
         if (target.matches('#create-lot-btn')) { this.openCreateLotModal(); return; }
         if (target.matches('#create-product-btn')) { this.openCreateProductModal(); return; }
+        if (target.matches('#create-application-btn')) { this.openCreateApplicationModal(); return; }
 
         const actionButton = target.closest('button[data-action]');
         if (actionButton) {
@@ -373,6 +450,7 @@ class App {
             const userId = actionButton.dataset.userId;
             const lotId = actionButton.dataset.lotId;
             const productId = actionButton.dataset.productId;
+            const applicationId = actionButton.dataset.applicationId;
 
             if (userId) {
                 if (action === 'edit') this.openEditUserModal(userId);
@@ -388,6 +466,10 @@ class App {
                 if (action === 'edit-product') this.openEditProductModal(productId);
                 if (action === 'deactivate-product') this.handleDeactivateProduct(productId);
                 if (action === 'restore-product') this.handleReactivateProduct(productId);
+            }
+            if (applicationId) {
+                if (action === 'view-application') this.viewApplication(applicationId);
+                if (action === 'delete-application') this.handleDeleteApplication(applicationId);
             }
         }
     }
@@ -405,6 +487,10 @@ class App {
         if (target.matches('#product-status-filter')) {
             this.currentProductFilter = target.value;
             this.renderProductsPage();
+        }
+        if (target.matches('#application-status-filter')) {
+            this.currentApplicationFilter = target.value;
+            this.renderApplicationsPage();
         }
     }
 
@@ -551,6 +637,35 @@ class App {
         }
     }
     
+    // --- CRUD Заявок ---
+
+    openCreateApplicationModal() {
+        if (!this.applicationModal) return;
+        this.applicationModal.show({
+            mode: 'create',
+            onSave: async (batchData) => {
+                await window.TMA_API.createBatchApplications(batchData);
+                this.applicationModal.hide();
+                this.renderApplicationsPage();
+            }
+        });
+    }
+
+    async handleDeleteApplication(applicationId) {
+        if (confirm(`Вы уверены, что хотите удалить заявку #${applicationId}?`)) {
+            try {
+                await window.TMA_API.deleteApplication(applicationId);
+                this.renderApplicationsPage();
+            } catch (e) {
+                alert(`Ошибка при удалении: ${e.message}`);
+            }
+        }
+    }
+
+    viewApplication(applicationId) {
+        alert(`Просмотр заявки #${applicationId} (в разработке)`);
+    }
+    
     // --- Вспомогательные функции ---
     showLoginError(message) {
         this.loginError.textContent = message;
@@ -564,7 +679,7 @@ class App {
 
 document.addEventListener('DOMContentLoaded', () => {
     // Убедимся, что все классы загружены, прежде чем создавать экземпляры
-    if (window.AuthManager && window.TMA_API && typeof UserModal !== 'undefined' && typeof LotModal !== 'undefined' && typeof ProductModal !== 'undefined') {
+    if (window.AuthManager && window.TMA_API && typeof UserModal !== 'undefined' && typeof LotModal !== 'undefined' && typeof ProductModal !== 'undefined' && typeof ApplicationModal !== 'undefined') {
         // Создаем главный экземпляр приложения
         const app = new App();
         
@@ -572,6 +687,7 @@ document.addEventListener('DOMContentLoaded', () => {
         app.userModal = new UserModal();
         app.lotModal = new LotModal();
         app.productModal = new ProductModal();
+        app.applicationModal = new ApplicationModal();
 
 
     } else {

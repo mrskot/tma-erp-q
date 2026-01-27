@@ -169,6 +169,11 @@ class ProductModal {
             inspection_time_minutes: this.inspectionTimeInput.value ? parseInt(this.inspectionTimeInput.value) : null,
             checklist: this.getChecklistFromDOM()
         };
+
+        // Добавляем ID только если мы в режиме редактирования
+        if (this.editMode && this.productId) {
+            finalData.id = parseInt(this.productId, 10);
+        }
         
         if (!finalData.name) {
             alert('Название изделия не может быть пустым.');
@@ -176,12 +181,20 @@ class ProductModal {
         }
 
         try {
+            const submitButton = this.form.querySelector('button[type="submit"]');
+            submitButton.disabled = true;
+            submitButton.textContent = 'Сохранение...';
+
             if (this.onSave) {
                  await this.onSave(finalData);
             }
         } catch (error) {
             console.error('Ошибка при сохранении изделия:', error);
             alert(`Не удалось сохранить изделие. ${error.message}`);
+        } finally {
+            const submitButton = this.form.querySelector('button[type="submit"]');
+            submitButton.disabled = false;
+            submitButton.textContent = 'Сохранить';
         }
     }
 }

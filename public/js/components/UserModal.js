@@ -28,6 +28,13 @@ class UserModal {
         if (data.bitrix_id) data.bitrix_id = parseInt(data.bitrix_id, 10);
         if (data.telegram_id) data.telegram_id = data.telegram_id.toString();
 
+        // Удаляем пустой ID при создании нового пользователя
+        if (!data.id) {
+            delete data.id;
+        } else {
+            data.id = parseInt(data.id, 10);
+        }
+
         if (this.onSave) {
             const submitButton = this.form.querySelector('button[type="submit"]');
             try {

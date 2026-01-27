@@ -1,6 +1,16 @@
 const db = require('../config/database');
 
 class Lot {
+  static async findAllWithMasterIds(limit = 100, offset = 0) {
+    return db('lots')
+      .select('lots.*') // Выбираем все поля из таблицы lots
+      .where('lots.is_active', true)
+      .orderBy('lots.priority', 'asc')
+      .orderBy('lots.name', 'asc')
+      .limit(limit)
+      .offset(offset);
+  }
+
   // Получить участок по ID
   static async findById(id) {
     return db('lots')
@@ -122,6 +132,7 @@ class Lot {
   }
 
   // Получить все участки с информацией о мастерах
+  // Возвращает плоскую структуру с ID мастеров для удобства на фронте
   static async findAllWithMasters(limit = 100, offset = 0, status = 'active') {
     const query = db('lots');
 
@@ -151,6 +162,10 @@ class Lot {
 
     return lots.map(lot => ({
       ...lot,
+      // Плоские поля для фронта (удобство)
+      main_master_name: lot.main_master_id ? `${lot.main_master_first_name} ${lot.main_master_last_name}` : null,
+      temp_master_name: lot.temp_master_id ? `${lot.temp_master_first_name} ${lot.temp_master_last_name}` : null,
+      // Объекты мастеров для полной информации
       main_master: lot.main_master_id ? {
         id: lot.main_master_id,
         first_name: lot.main_master_first_name,

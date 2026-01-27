@@ -226,6 +226,18 @@ class LotService {
       throw new Error(`Ошибка получения участка по коду: ${error.message}`);
     }
   }
+
+  // --- НОВЫЙ МЕТОД ---
+  // Получить ВСЕ участки с мастерами для модального окна
+  static async getAllLotsWithMasters(status = 'active') {
+    try {
+      // Лимит 1000 чтобы гарантированно получить все участки
+      const lots = await Lot.findAllWithMasters(1000, 0, status);
+      return { success: true, data: lots };
+    } catch (error) {
+       throw new Error(`Ошибка получения участков с мастерами: ${error.message}`);
+    }
+  }
 }
 
 module.exports = LotService;

@@ -1,50 +1,81 @@
 const express = require('express');
-const router = express.Router();
 const { body, param } = require('express-validator');
 const ApplicationController = require('../controllers/applicationController');
 const { authenticateJWT } = require('../middleware/auth');
+const rbacMiddleware = require('../middleware/rbacMiddleware'); 
 
-const createApplicationValidation = [
-  body('master_id').isInt().withMessage('ID мастера обязателен'),
-  body('lot_id').isInt().withMessage('ID участка обязателен'),
-  body('product_id').isInt().withMessage('ID изделия обязателено'),
-  body('serial_number')
-    .optional()
-    .isString().withMessage('Серийный номер должен быть строкой'),
-  body('quantity')
-    .optional()
-    .isInt({ min: 1 }).withMessage('Количество должно быть положительным'),
-  body('desired_inspection_time')
-    .notEmpty().withMessage('Желаемое время контроля обязательно'),
-];
+const router = express.Router();
 
-const updateApplicationValidation = [
-  param('id').isInt().withMessage('ID должен быть числом'),
-  body('master_id').optional().isInt(),
-  body('serial_number').optional().isString(),
-  body('quantity').optional().isInt({ min: 1 }),
-];
+// Применяем middleware аутентичности ко всем роутам этого файла
+router.use(authenticateJWT);
 
-const updateStatusValidation = [
-  param('id').isInt().withMessage('ID должен быть числом'),
-  body('status')
-    .notEmpty().withMessage('Статус обязателен')
-    .isIn(['new', 'assigned', 'in_progress', 'accepted', 'rejected']).withMessage('Недопустимый статус'),
-  body('rejectionReason')
-    .optional()
-    .isString().withMessage('Причина должна быть строкой'),
-];
+// GET /api/v1/applications - Получение списка заявок (фильтруется по роли и query-параметру ?status=new)
+router.get(
+    '/', 
+    rbacMiddleware(['admin', 'director', 'inspector', 'master']), 
+    ApplicationController.getAllApplications
+);
 
-// Маршруты
-router.get('/', authenticateJWT, ApplicationController.getAllApplications);
-router.get('/statistics', authenticateJWT, ApplicationController.getApplicationStatistics);
-router.get('/:id', authenticateJWT, param('id').isInt(), ApplicationController.getApplicationById);
-router.get('/status/:status', authenticateJWT, ApplicationController.getApplicationsByStatus);
-router.get('/master/:masterId', authenticateJWT, param('masterId').isInt(), ApplicationController.getApplicationsByMaster);
+// GET /api/v1/applications/statistics - Получение статистики
+router.get(
+    '/statistics', 
+    rbacMiddleware(['admin', 'director']), 
+    ApplicationController.getApplicationStatistics
+);
 
-router.post('/', authenticateJWT, createApplicationValidation, ApplicationController.createApplication);
-router.put('/:id', authenticateJWT, updateApplicationValidation, ApplicationController.updateApplication);
-router.patch('/:id/status', authenticateJWT, updateStatusValidation, ApplicationController.updateApplicationStatus);
-router.delete('/:id', authenticateJWT, param('id').isInt(), ApplicationController.deleteApplication);
+// GET /api/v1/applications/:id - Получение одной заявки
+router.get(
+    '/:id', 
+    param('id').isInt().withMessage('ID должен быть числом'),
+    rbacMiddleware(['admin', 'director', 'inspector', 'master']), 
+    ApplicationController.getApplicationById
+);
+
+// POST /api/v1/applications/batch - Пакетное создание заявок
+router.post(
+    '/batch',
+    rbacMiddleware(['admin', 'director', 'master']),
+    [
+        body('product_id').isInt().withMessage('Product ID должен быть целым числом'),
+        body('lot_id').isInt().withMessage('Lot ID должен быть целым числом'),
+        body('master_id').isInt().withMessage('Master ID должен быть целым числом'),
+        body('quantity').isInt({ min: 1 }).withMessage('Количество должно быть не менее 1'),
+        body('desired_inspection_time').isISO8601().toDate().withMessage('Неверный формат даты'),
+        body('has_serial_numbers').isBoolean().withMessage('Флаг has_serial_numbers должен быть boolean'),
+        body('serial_numbers').isArray().optional()
+    ],
+    ApplicationController.createBatchApplications
+);
+
+// PUT /api/v1/applications/:id - Обновление заявки
+router.put(
+    '/:id',
+    param('id').isInt().withMessage('ID должен быть числом'),
+    rbacMiddleware(['admin', 'director', 'master']),
+    [
+        body('inspector_id').optional().isInt().withMessage('Inspector ID должен быть целым числом'),
+        body('drawing_number').optional().isString().withMessage('Номер чертежа должен быть строкой'),
+    ],
+    ApplicationController.updateApplication
+);
+
+// PATCH /api/v1/applications/:id/status - Обновление статуса
+router.patch(
+    '/:id/status',
+    param('id').isInt().withMessage('ID должен быть числом'),
+    rbacMiddleware(['admin', 'director', 'inspector']),
+    [
+        body('status').isIn(['new', 'assigned', 'in_progress', 'accepted', 'rejected']).withMessage('Недопустимый статус')
+    ],
+    ApplicationController.updateApplicationStatus
+);
+
+// DELETE /api/v1/applications/:id - Деактивация (мягкое удаление)
+router.delete(
+    '/:id',
+    param('id').isInt().withMessage('ID должен быть числом'),
+    rbacMiddleware(['admin']),
+    ApplicationController.deleteApplication
+);
 
 module.exports = router;

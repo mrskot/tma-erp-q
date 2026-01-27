@@ -2,33 +2,56 @@ const db = require('../config/database');
 
 class Application {
   static async findById(id) {
-    return db('applications')
-      .where({ id, is_active: true })
+    return db('applications as a')
+      .select(
+        'a.*',
+        'p.name as product_name',
+        'l.name as lot_name',
+        db.raw("master.first_name || ' ' || master.last_name as master_name"),
+        db.raw("inspector.first_name || ' ' || inspector.last_name as inspector_name")
+      )
+      .leftJoin('products as p', 'a.product_id', 'p.id')
+      .leftJoin('lots as l', 'a.lot_id', 'l.id')
+      .leftJoin('users as master', 'a.master_id', 'master.id')
+      .leftJoin('users as inspector', 'a.inspector_id', 'inspector.id')
+      .where('a.id', id)
       .first();
   }
 
-  static async findAll(limit = 100, offset = 0) {
-    return db('applications')
-      .where({ is_active: true })
-      .orderBy('created_at', 'desc')
+  static async findAll({ filters = {}, limit = 100, offset = 0, user = null }) {
+    const query = db('applications as a')
+      .select(
+        'a.*',
+        'p.name as product_name',
+        'l.name as lot_name',
+        db.raw("master.first_name || ' ' || master.last_name as master_name"),
+        db.raw("inspector.first_name || ' ' || inspector.last_name as inspector_name")
+      )
+      .leftJoin('products as p', 'a.product_id', 'p.id')
+      .leftJoin('lots as l', 'a.lot_id', 'l.id')
+      .leftJoin('users as master', 'a.master_id', 'master.id')
+      .leftJoin('users as inspector', 'a.inspector_id', 'inspector.id')
+      .where('a.is_active', true)
+      .orderBy('a.created_at', 'desc')
       .limit(limit)
       .offset(offset);
-  }
 
-  static async findByStatus(status, limit = 100, offset = 0) {
-    return db('applications')
-      .where({ status, is_active: true })
-      .orderBy('desired_inspection_time', 'asc')
-      .limit(limit)
-      .offset(offset);
-  }
+    // Apply role-based filtering
+    if (user) {
+      if (user.role === 'master') {
+        query.andWhere('a.master_id', user.id);
+      } else if (user.role === 'inspector') {
+        query.andWhere('a.inspector_id', user.id);
+      }
+      // Admins and directors see everything, so no extra filter needed.
+    }
 
-  static async findByMasterId(masterId, limit = 100, offset = 0) {
-    return db('applications')
-      .where({ master_id: masterId, is_active: true })
-      .orderBy('created_at', 'desc')
-      .limit(limit)
-      .offset(offset);
+    // Apply status filter if provided
+    if (filters.status && filters.status !== 'all') {
+      query.andWhere('a.status', filters.status);
+    }
+    
+    return query;
   }
 
   static async findByApplicationNumber(number) {
@@ -42,6 +65,18 @@ class Application {
       .insert(appData)
       .returning('*');
     return app;
+  }
+
+  static async createBatch(appsData) {
+    if (!appsData || appsData.length === 0) {
+      return [];
+    }
+    return db.transaction(async (trx) => {
+      const apps = await trx('applications')
+        .insert(appsData)
+        .returning('*');
+      return apps;
+    });
   }
 
   static async update(id, appData) {
@@ -95,3 +130,4 @@ class Application {
 }
 
 module.exports = Application;
+

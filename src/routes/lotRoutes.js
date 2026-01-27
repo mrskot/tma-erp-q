@@ -3,6 +3,7 @@ const router = express.Router();
 const { body, param, query } = require('express-validator');
 const LotController = require('../controllers/lotController');
 const { authenticateJWT } = require('../middleware/auth');
+const rbacMiddleware = require('../middleware/rbacMiddleware');
 
 // Валидация для создания участка
 const createLotValidation = [
@@ -79,6 +80,15 @@ const queryValidation = [
 
 // Получить все участки
 router.get('/', authenticateJWT, queryValidation, LotController.getAllLots);
+
+// --- НОВЫЙ МАРШРУТ ---
+// GET /api/v1/lots/with-masters - Получение списка участков с мастерами для форм
+router.get(
+    '/with-masters',
+    authenticateJWT, // Сначала проверяем аутентификацию
+    rbacMiddleware(['admin', 'director', 'master']), // Затем права доступа
+    LotController.getLotsWithMasters
+);
 
 // Получить участок по ID
 router.get('/:id', authenticateJWT,

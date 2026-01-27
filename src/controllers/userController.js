@@ -197,7 +197,8 @@ class UserController {
 
   static async getUsersByRole(req, res) {
     try {
-      if (!req.user || !['admin', 'director', 'inspector'].includes(req.user.role)) {
+      // Разрешаем доступ админам, директорам, инспекторам и мастерам
+      if (!req.user || !['admin', 'director', 'inspector', 'master'].includes(req.user.role)) {
         return res.status(403).json({
           success: false,
           message: 'Доступ запрещен'
