@@ -30,7 +30,8 @@ class App {
         this.userModal = null;
         this.lotModal = null;
         this.productModal = null;
-        this.applicationModal = null; // Добавляем модальное окно для заявок"
+        this.applicationModal = null;
+        this.discrepancyModal = null; // Добавляем модальное окно для несоответствий
 
         // --- КОНФИГУРАЦИЯ РОЛЕЙ И ДОСТУПА ---
         this.ROLES_CONFIG = {
@@ -433,7 +434,68 @@ class App {
             this.pageContent.innerHTML = `<h3>Заявки</h3><p class="error-message">Ошибка: ${error.message}</p>`;
         }
     }
-    async renderDiscrepanciesPage() { this.pageContent.innerHTML = `<h3>Несоответствия</h3><p>В разработке.</p>`; }
+    async renderDiscrepanciesPage() {
+        this.pageContent.innerHTML = `<h3>Несоответствия</h3><p>Загрузка...</p>`;
+        try {
+            const response = await window.TMA_API.getDiscrepancies();
+            if (!response.success || !Array.isArray(response.data)) throw new Error(response.message || 'Не удалось загрузить несоответствия.');
+            
+            const discrepancies = response.data;
+            const statusMap = {
+                'new': 'Новое',
+                'assigned': 'Назначено',
+                'in_progress': 'В работе',
+                'resolved': 'Исправлено',
+                'closed': 'Закрыто'
+            };
+            const severityMap = {
+                'low': 'Низкая',
+                'medium': 'Средняя',
+                'high': 'Высокая',
+                'critical': 'Критическая'
+            };
+
+            let tableRows = discrepancies.map(disc => {
+                const statusClass = `status-${disc.status}`;
+                const severityClass = `severity-${disc.severity}`;
+                return `<tr data-discrepancy-id="${disc.id}">
+                    <td data-label="Заголовок">${disc.title}</td>
+                    <td data-label="Статус"><span class="status-badge ${statusClass}">${statusMap[disc.status] || disc.status}</span></td>
+                    <td data-label="Серьезность"><span class="severity-badge ${severityClass}">${severityMap[disc.severity] || disc.severity}</span></td>
+                    <td data-label="Срок">${new Date(disc.due_date).toLocaleDateString()}</td>
+                    <td class="actions">
+                        <button class="button-small button-secondary" data-discrepancy-id="${disc.id}" data-action="edit-discrepancy" title="Редактировать">✏️</button>
+                        <button class="button-small button-danger" data-discrepancy-id="${disc.id}" data-action="delete-discrepancy" title="Удалить">🗑️</button>
+                    </td>
+                </tr>`;
+            }).join('');
+
+            if (discrepancies.length === 0) tableRows = `<tr><td colspan="5">Несоответствия не найдены.</td></tr>`;
+
+            this.pageContent.innerHTML = `
+                <div class="page-header">
+                    <h3>Несоответствия</h3>
+                    <div class="page-controls">
+                        <button id="create-discrepancy-btn" class="button">✨ Зафиксировать дефект</button>
+                    </div>
+                </div>
+                <table class="crud-table">
+                    <thead>
+                        <tr>
+                            <th>Заголовок</th>
+                            <th>Статус</th>
+                            <th>Серьезность</th>
+                            <th>Срок</th>
+                            <th>Действия</th>
+                        </tr>
+                    </thead>
+                    <tbody>${tableRows}</tbody>
+                </table>`;
+        } catch (error) {
+            console.error('Ошибка при загрузке несоответствий:', error);
+            this.pageContent.innerHTML = `<h3>Несоответствия</h3><p class="error-message">Ошибка: ${error.message}</p>`;
+        }
+    }
 
     // --- Обработчики событий ---
 
@@ -443,6 +505,7 @@ class App {
         if (target.matches('#create-lot-btn')) { this.openCreateLotModal(); return; }
         if (target.matches('#create-product-btn')) { this.openCreateProductModal(); return; }
         if (target.matches('#create-application-btn')) { this.openCreateApplicationModal(); return; }
+        if (target.matches('#create-discrepancy-btn')) { this.openCreateDiscrepancyModal(); return; }
 
         const actionButton = target.closest('button[data-action]');
         if (actionButton) {
@@ -451,6 +514,7 @@ class App {
             const lotId = actionButton.dataset.lotId;
             const productId = actionButton.dataset.productId;
             const applicationId = actionButton.dataset.applicationId;
+            const discrepancyId = actionButton.dataset.discrepancyId;
 
             if (userId) {
                 if (action === 'edit') this.openEditUserModal(userId);
@@ -470,6 +534,10 @@ class App {
             if (applicationId) {
                 if (action === 'view-application') this.viewApplication(applicationId);
                 if (action === 'delete-application') this.handleDeleteApplication(applicationId);
+            }
+            if (discrepancyId) {
+                if (action === 'edit-discrepancy') this.openEditDiscrepancyModal(discrepancyId);
+                if (action === 'delete-discrepancy') this.handleDeleteDiscrepancy(discrepancyId);
             }
         }
     }
@@ -666,6 +734,52 @@ class App {
         alert(`Просмотр заявки #${applicationId} (в разработке)`);
     }
     
+    // --- CRUD Несоответствий ---
+
+    async openCreateDiscrepancyModal(applicationId = null) {
+        if (!this.discrepancyModal) return;
+        this.discrepancyModal.show({
+            mode: 'create',
+            applicationId,
+            onSave: async (data) => {
+                await window.TMA_API.createDiscrepancy(data);
+                this.discrepancyModal.hide();
+                this.renderDiscrepanciesPage();
+            }
+        });
+    }
+
+    async openEditDiscrepancyModal(id) {
+        if (!this.discrepancyModal) return;
+        try {
+            const response = await window.TMA_API.getDiscrepancyById(id);
+            if (!response.success) throw new Error(response.message);
+            
+            this.discrepancyModal.show({
+                mode: 'edit',
+                discrepancyData: response.data,
+                onSave: async (data) => {
+                    await window.TMA_API.updateDiscrepancy(id, data);
+                    this.discrepancyModal.hide();
+                    this.renderDiscrepanciesPage();
+                }
+            });
+        } catch (e) {
+            alert(`Ошибка: ${e.message}`);
+        }
+    }
+
+    async handleDeleteDiscrepancy(id) {
+        if (confirm(`Вы уверены, что хотите удалить несоответствие #${id}?`)) {
+            try {
+                await window.TMA_API.deleteDiscrepancy(id);
+                this.renderDiscrepanciesPage();
+            } catch (e) {
+                alert(`Ошибка при удалении: ${e.message}`);
+            }
+        }
+    }
+    
     // --- Вспомогательные функции ---
     showLoginError(message) {
         this.loginError.textContent = message;
@@ -679,7 +793,7 @@ class App {
 
 document.addEventListener('DOMContentLoaded', () => {
     // Убедимся, что все классы загружены, прежде чем создавать экземпляры
-    if (window.AuthManager && window.TMA_API && typeof UserModal !== 'undefined' && typeof LotModal !== 'undefined' && typeof ProductModal !== 'undefined' && typeof ApplicationModal !== 'undefined') {
+    if (window.AuthManager && window.TMA_API && typeof UserModal !== 'undefined' && typeof LotModal !== 'undefined' && typeof ProductModal !== 'undefined' && typeof ApplicationModal !== 'undefined' && typeof DiscrepancyModal !== 'undefined') {
         // Создаем главный экземпляр приложения
         const app = new App();
         
@@ -688,6 +802,7 @@ document.addEventListener('DOMContentLoaded', () => {
         app.lotModal = new LotModal();
         app.productModal = new ProductModal();
         app.applicationModal = new ApplicationModal();
+        app.discrepancyModal = new DiscrepancyModal();
 
 
     } else {

@@ -293,6 +293,60 @@ class TMA_API {
         const error = await response.json();
         throw new Error(error.message || 'Failed to delete application');
     }
+
+    // --- Несоответствия (Discrepancies) ---
+
+    async getDiscrepancies(filters = {}) {
+        const query = new URLSearchParams(filters).toString();
+        const response = await this.request(`/discrepancies?${query}`);
+        if (response.ok) return await response.json();
+        throw new Error('Failed to get discrepancies');
+    }
+
+    async getDiscrepancyById(id) {
+        const response = await this.request(`/discrepancies/${id}`);
+        if (response.ok) return await response.json();
+        throw new Error('Failed to get discrepancy');
+    }
+
+    async createDiscrepancy(discrepancyData) {
+        const response = await this.request('/discrepancies', {
+            method: 'POST',
+            body: JSON.stringify(discrepancyData)
+        });
+        if (response.ok) return await response.json();
+        const error = await response.json();
+        throw new Error(error.message || 'Failed to create discrepancy');
+    }
+
+    async updateDiscrepancy(id, discrepancyData) {
+        const response = await this.request(`/discrepancies/${id}`, {
+            method: 'PUT',
+            body: JSON.stringify(discrepancyData)
+        });
+        if (response.ok) return await response.json();
+        const error = await response.json();
+        throw new Error(error.message || 'Failed to update discrepancy');
+    }
+
+    async updateDiscrepancyStatus(id, status, closureScenario = null) {
+        const response = await this.request(`/discrepancies/${id}/status`, {
+            method: 'PATCH',
+            body: JSON.stringify({ status, closure_scenario: closureScenario })
+        });
+        if (response.ok) return await response.json();
+        const error = await response.json();
+        throw new Error(error.message || 'Failed to update discrepancy status');
+    }
+
+    async deleteDiscrepancy(id) {
+        const response = await this.request(`/discrepancies/${id}`, {
+            method: 'DELETE'
+        });
+        if (response.ok) return await response.json();
+        const error = await response.json();
+        throw new Error(error.message || 'Failed to delete discrepancy');
+    }
 }
 
 window.TMA_API = new TMA_API();

@@ -234,6 +234,53 @@
                 </form>
             </div>
         </div>
+
+        <!-- Модальное окно для Несоответствий -->
+        <div id="discrepancy-modal" class="modal">
+            <div class="modal-content">
+                <span class="close">&times;</span>
+                <h2 class="modal-title">Регистрация несоответствия</h2>
+                <form id="discrepancy-form">
+                    <input type="hidden" name="id">
+                    <input type="hidden" name="application_id">
+                    
+                    <div class="form-group">
+                        <label for="disc-title">Краткое описание:</label>
+                        <input type="text" id="disc-title" name="title" required placeholder="Например: Царапина на корпусе">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="disc-description">Подробное описание:</label>
+                        <textarea id="disc-description" name="description" rows="3"></textarea>
+                    </div>
+
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label for="disc-severity">Серьезность:</label>
+                            <select id="disc-severity" name="severity" required>
+                                <option value="low">Низкая</option>
+                                <option value="medium" selected>Средняя</option>
+                                <option value="high">Высокая</option>
+                                <option value="critical">Критическая</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="disc-responsible">Ответственный:</label>
+                            <select id="disc-responsible" name="responsible_id" required>
+                                <!-- Список мастеров/рабочих -->
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="disc-due-date">Срок устранения:</label>
+                        <input type="date" id="disc-due-date" name="due_date" required>
+                    </div>
+
+                    <button type="submit" class="button">Зафиксировать дефект</button>
+                </form>
+            </div>
+        </div>
     </div>
     <!-- === Конец модальных окон === -->
 
@@ -245,6 +292,7 @@
     <script src="/js/components/LotModal.js"></script>
     <script src="/js/components/ProductModal.js"></script>
     <script src="/js/components/ApplicationModal.js"></script>
+    <script src="/js/components/DiscrepancyModal.js"></script>
     <!-- Основная логика -->
     <script src="/js/auth.js"></script>
     <script src="/js/app.js"></script>

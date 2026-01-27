@@ -82,7 +82,11 @@ class DiscrepancyController {
 
       const errors = validationResult(req);
       if (!errors.isEmpty()) {
-        return res.status(400).json({ success: false, errors: errors.array() });
+        return res.status(400).json({ 
+            success: false, 
+            errors: errors.array(),
+            message: 'Ошибка валидации: ' + errors.array().map(e => e.msg).join(', ')
+        });
       }
 
       const disc = await DiscrepancyService.createDiscrepancy(req.body);
