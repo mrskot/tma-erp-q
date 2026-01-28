@@ -220,6 +220,7 @@ exports.seed = async function(knex) {
       master_id: users[4].id, // Алексей Кузнецов
       lot_id: lots[0].id, // Цех сборки
       product_id: products[0].id, // Трансформатор ТСЛ-1000
+      drawing_number: 'ТСЛ.1000.01.00',
       serial_number: 'TSL-1000-001',
       quantity: 1,
       desired_inspection_time: new Date(now.getTime() + 2 * 60 * 60 * 1000), // +2 часа
@@ -231,6 +232,7 @@ exports.seed = async function(knex) {
       master_id: users[5].id, // Ольга Иванова
       lot_id: lots[1].id, // Участок обмоток
       product_id: products[1].id, // Обмотка НН
+      drawing_number: 'ОНН.400.02.15',
       serial_number: 'WIND-001',
       quantity: 10,
       desired_inspection_time: new Date(now.getTime() + 1 * 60 * 60 * 1000), // +1 час
@@ -243,12 +245,25 @@ exports.seed = async function(knex) {
       master_id: users[4].id, // Алексей Кузнецов
       lot_id: lots[0].id, // Цех сборки
       product_id: products[2].id, // Остов трансформатора
+      drawing_number: 'ОС.1000.05.01',
       serial_number: 'CORE-001',
       quantity: 2,
       desired_inspection_time: new Date(now.getTime() + 3 * 60 * 60 * 1000), // +3 часа
       assigned_at: new Date(now.getTime() - 1 * 60 * 60 * 1000), // -1 час
       started_at: new Date(now.getTime() - 45 * 60 * 1000), // -45 минут
       status: 'in_progress',
+      is_active: true,
+    },
+    {
+      application_number: 'APP-2024-004',
+      master_id: users[5].id, // Ольга Иванова
+      lot_id: lots[3].id, // Склад
+      product_id: products[3].id, // Болт М12
+      drawing_number: 'ГОСТ.7798-70',
+      serial_number: 'BATCH-44',
+      quantity: 500,
+      desired_inspection_time: new Date(now.getTime() - 2 * 60 * 60 * 1000), // Просрочено!
+      status: 'new',
       is_active: true,
     },
   ]).returning('id');
@@ -264,6 +279,7 @@ exports.seed = async function(knex) {
       responsible_id: users[4].id, // Алексей Кузнецов (мастер участка)
       inspector_id: users[2].id, // Мария Сидорова (инспектор)
       detected_at: new Date(now.getTime() - 40 * 60 * 1000), // -40 минут
+      due_date: new Date(now.getTime() + 24 * 60 * 60 * 1000),
       status: 'assigned',
       is_active: true,
     },
@@ -274,13 +290,42 @@ exports.seed = async function(knex) {
       description: 'Отверстия расположены с отклонением 3мм от чертежа',
       severity: 'medium',
       responsible_id: users[5].id, // Ольга Иванова
-      assigned_worker_id: users[7].id, // Петр Смирнов (рабочий)
       inspector_id: users[3].id, // Сергей Васильев
       detected_at: new Date(now.getTime() - 2 * 24 * 60 * 60 * 1000), // -2 дня
+      due_date: new Date(now.getTime() + 5 * 60 * 60 * 1000),
       status: 'in_progress',
       started_at: new Date(now.getTime() - 1 * 24 * 60 * 60 * 1000), // -1 день
       is_active: true,
     },
+    {
+      discrepancy_number: 'DISC-2024-003',
+      application_id: applications[1].id,
+      title: 'Царапины на изоляции',
+      description: 'Повреждение лаковой изоляции обмотки в 3-х местах',
+      severity: 'low',
+      responsible_id: users[5].id, // Ольга Иванова
+      inspector_id: users[3].id, 
+      detected_at: new Date(now.getTime() - 3 * 60 * 60 * 1000),
+      due_date: new Date(now.getTime() + 2 * 60 * 60 * 1000),
+      status: 'resolved',
+      fix_photo_url: 'https://via.placeholder.com/300?text=FIXED_PHOTO',
+      is_active: true,
+    },
+    {
+      discrepancy_number: 'DISC-2024-004',
+      application_id: applications[0].id,
+      title: 'Некомплект метизов',
+      description: 'Отсутствуют 4 болта крепления крышки',
+      severity: 'medium',
+      responsible_id: users[4].id, 
+      inspector_id: users[2].id, 
+      detected_at: new Date(now.getTime() - 1 * 60 * 60 * 1000),
+      due_date: new Date(now.getTime() + 4 * 60 * 60 * 1000),
+      status: 'in_progress',
+      special_opinion: '[ДРУГОЙ ОТВЕТСТВЕННЫЙ] Это комплектация склада, а не сборка. Должен устранять склад.',
+      is_disputed: true,
+      is_active: true,
+    }
   ]);
 
   // 6. Системные конфигурации
