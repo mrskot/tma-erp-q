@@ -2,6 +2,8 @@ const Application = require('../models/Application');
 const User = require('../models/User');
 const Product = require('../models/Product');
 const Lot = require('../models/Lot');
+const Discrepancy = require('../models/Discrepancy');
+const activityLogService = require('./activityLogService');
 const { AppError } = require('../utils/errorHandler');
 
 class ApplicationService {
@@ -67,14 +69,19 @@ class ApplicationService {
         throw new AppError('Не все обязательные поля были предоставлены.', 400);
       }
       
-      const [product, lot, master] = await Promise.all([
-        Product.findById(product_id),
+      // 1. Поиск изделия для получения контролёра по умолчанию
+      const product = await Product.findById(product_id);
+      if (!product) throw new AppError('Изделие не найдено', 404);
+
+      const [lot, master] = await Promise.all([
         Lot.findById(lot_id),
         User.findById(master_id)
       ]);
-      if (!product) throw new AppError('Изделие не найдено', 404);
       if (!lot) throw new AppError('Участок не найден', 404);
       if (!master || master.role !== 'master') throw new AppError('Мастер не найден или пользователь не является мастером', 400);
+
+      // 2. Определение контролёра (по умолчанию из изделия)
+      const defaultInspectorId = product.default_inspector_id;
 
       if (has_serial_numbers && serial_numbers.length !== quantity) {
         throw new AppError('Количество серийных номеров не соответствует заявленному количеству.', 400);
@@ -98,7 +105,9 @@ class ApplicationService {
           desired_inspection_time,
           quantity: 1,
           serial_number,
-          status: 'new',
+          status: defaultInspectorId ? 'assigned' : 'new',
+          inspector_id: defaultInspectorId || null,
+          assigned_at: defaultInspectorId ? new Date() : null,
           rejection_reason: notes || null
         });
       }
@@ -119,10 +128,10 @@ class ApplicationService {
    */
   static async updateApplication(id, appData, user) {
     try {
-      const app = await Application.findById(id);
-      if (!app) throw new AppError('Заявка не найдена', 404);
+      const oldApp = await Application.findById(id);
+      if (!oldApp) throw new AppError('Заявка не найдена', 404);
 
-      if (user.role === 'master' && app.master_id !== user.id && app.status !== 'new') {
+      if (user.role === 'master' && oldApp.master_id !== user.id && oldApp.status !== 'new') {
         throw new AppError('Мастер может редактировать только свои новые заявки', 403);
       }
       
@@ -132,6 +141,19 @@ class ApplicationService {
       }
 
       const updated = await Application.update(id, appData);
+
+      // Логирование действия
+      await activityLogService.log({
+        userId: user.id,
+        userRole: user.role,
+        actionType: 'update',
+        entityType: 'application',
+        entityId: id,
+        oldData: oldApp,
+        newData: updated,
+        description: `Обновление заявки ${oldApp.application_number}`
+      });
+
       return { success: true, data: updated };
     } catch (error) {
       throw new AppError(error.message, error.statusCode || 500);
@@ -143,17 +165,41 @@ class ApplicationService {
    * @param {number} id - ID заявки.
    * @param {string} status - Новый статус.
    * @param {string} rejectionReason - Причина отклонения (если есть).
+   * @param {object} user - Пользователь, выполняющий операцию.
    * @returns {Promise<object>} - Обновленная заявка.
    */
-  static async updateApplicationStatus(id, status, rejectionReason = null) {
+  static async updateApplicationStatus(id, status, rejectionReason = null, user) {
     try {
-      const app = await Application.findById(id);
-      if (!app) throw new AppError('Заявка не найдена', 404);
+      const oldApp = await Application.findById(id);
+      if (!oldApp) throw new AppError('Заявка не найдена', 404);
 
       const validStatuses = ['new', 'assigned', 'in_progress', 'accepted', 'rejected'];
       if (!validStatuses.includes(status)) throw new AppError('Недопустимый статус', 400);
 
+      // ЖЕСТКАЯ БИЗНЕС-ЛОГИКА: Запрет принятия с открытыми дефектами
+      if (status === 'accepted') {
+        const discrepancies = await Discrepancy.findByApplicationId(id);
+        const openDiscrepancies = discrepancies.filter(d => d.status !== 'closed');
+        
+        if (openDiscrepancies.length > 0) {
+          throw new AppError('Нельзя принять изделие с незакрытыми несоответствиями', 400);
+        }
+      }
+
       const updated = await Application.updateStatus(id, status, rejectionReason);
+
+      // Логирование смены статуса
+      await activityLogService.log({
+        userId: user.id,
+        userRole: user.role,
+        actionType: 'status_change',
+        entityType: 'application',
+        entityId: id,
+        oldData: { status: oldApp.status, rejection_reason: oldApp.rejection_reason },
+        newData: { status: updated.status, rejection_reason: updated.rejection_reason },
+        description: `Смена статуса заявки ${oldApp.application_number} на ${status}`
+      });
+
       return { success: true, data: updated };
     } catch (error) {
       throw new AppError(error.message, error.statusCode || 500);

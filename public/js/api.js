@@ -255,6 +255,12 @@ class TMA_API {
         throw new Error('Failed to get applications');
     }
 
+    async getApplicationById(applicationId) {
+        const response = await this.request(`/applications/${applicationId}`);
+        if (response.ok) return await response.json();
+        throw new Error('Failed to get application');
+    }
+
     async createBatchApplications(batchData) {
         const response = await this.request('/applications/batch', {
             method: 'POST',
@@ -294,6 +300,13 @@ class TMA_API {
         throw new Error(error.message || 'Failed to delete application');
     }
 
+    async getApplicationStatistics() {
+        const response = await this.request('/applications/statistics');
+        if (response.ok) return await response.json();
+        const error = await response.json();
+        throw new Error(error.message || 'Failed to get application statistics');
+    }
+
     // --- Несоответствия (Discrepancies) ---
 
     async getDiscrepancies(filters = {}) {
@@ -329,10 +342,11 @@ class TMA_API {
         throw new Error(error.message || 'Failed to update discrepancy');
     }
 
-    async updateDiscrepancyStatus(id, status, closureScenario = null) {
+    async updateDiscrepancyStatus(id, payload) {
+        // payload может содержать status, closure_scenario, fix_photo_url, special_opinion, is_disputed
         const response = await this.request(`/discrepancies/${id}/status`, {
             method: 'PATCH',
-            body: JSON.stringify({ status, closure_scenario: closureScenario })
+            body: JSON.stringify(payload)
         });
         if (response.ok) return await response.json();
         const error = await response.json();
@@ -346,6 +360,13 @@ class TMA_API {
         if (response.ok) return await response.json();
         const error = await response.json();
         throw new Error(error.message || 'Failed to delete discrepancy');
+    }
+
+    async getDiscrepancyStatistics() {
+        const response = await this.request('/discrepancies/statistics');
+        if (response.ok) return await response.json();
+        const error = await response.json();
+        throw new Error(error.message || 'Failed to get discrepancy statistics');
     }
 }
 

@@ -4,8 +4,9 @@ const { validationResult } = require('express-validator');
 class DiscrepancyController {
   static async getAllDiscrepancies(req, res) {
     try {
-      const { limit = 100, offset = 0 } = req.query;
-      const result = await DiscrepancyService.getAllDiscrepancies(parseInt(limit), parseInt(offset));
+      const { limit = 100, offset = 0, status, responsible_id, severity } = req.query;
+      const filters = { status, responsible_id, severity };
+      const result = await DiscrepancyService.getAllDiscrepancies(filters, parseInt(limit), parseInt(offset));
 
       res.json({
         success: true,
@@ -89,7 +90,7 @@ class DiscrepancyController {
         });
       }
 
-      const disc = await DiscrepancyService.createDiscrepancy(req.body);
+      const disc = await DiscrepancyService.createDiscrepancy(req.body, req.user);
       res.status(201).json({ success: true, message: 'Несоответствие создано', data: disc });
     } catch (error) {
       res.status(400).json({ success: false, message: error.message });
@@ -107,7 +108,7 @@ class DiscrepancyController {
         return res.status(400).json({ success: false, errors: errors.array() });
       }
 
-      const disc = await DiscrepancyService.updateDiscrepancy(parseInt(req.params.id), req.body);
+      const disc = await DiscrepancyService.updateDiscrepancy(parseInt(req.params.id), req.body, req.user);
       res.json({ success: true, message: 'Несоответствие обновлено', data: disc });
     } catch (error) {
       res.status(error.message.includes('не найдено') ? 404 : 400).json({ 
@@ -123,11 +124,13 @@ class DiscrepancyController {
         return res.status(403).json({ success: false, message: 'Недостаточно прав' });
       }
 
-      const { status, closure_scenario } = req.body;
+      const { status, closure_scenario, ...additionalData } = req.body;
       const disc = await DiscrepancyService.updateDiscrepancyStatus(
         parseInt(req.params.id),
         status,
-        closure_scenario
+        closure_scenario,
+        req.user,
+        additionalData
       );
       res.json({ success: true, message: 'Статус обновлен', data: disc });
     } catch (error) {

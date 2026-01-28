@@ -43,12 +43,29 @@ class Application {
       } else if (user.role === 'inspector') {
         query.andWhere('a.inspector_id', user.id);
       }
-      // Admins and directors see everything, so no extra filter needed.
+    }
+
+    if (filters.master_id) {
+        query.andWhere('a.master_id', filters.master_id);
+    }
+    if (filters.inspector_id) {
+        query.andWhere('a.inspector_id', filters.inspector_id);
+    }
+
+    if (filters.lot_id) {
+        query.andWhere('a.lot_id', filters.lot_id);
     }
 
     // Apply status filter if provided
     if (filters.status && filters.status !== 'all') {
-      query.andWhere('a.status', filters.status);
+      const statuses = filters.status.split(',');
+      if (statuses.length > 1) {
+        query.andWhere(function() {
+          this.whereIn('a.status', statuses);
+        });
+      } else {
+        query.andWhere('a.status', filters.status);
+      }
     }
     
     return query;

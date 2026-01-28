@@ -36,11 +36,19 @@
     <!-- Основное приложение -->
     <div id="main-app" class="app-screen hidden">
         <header>
-            <div class="container">
+            <div class="container header-container">
                 <div id="user-info">Загрузка...</div>
                 <button id="logout-button" class="button button-secondary">Выйти</button>
             </div>
         </header>
+        <div class="search-bar-wrapper">
+            <div class="container">
+                <div class="search-container">
+                    <input type="text" id="global-search-input" placeholder="Поиск (номер, серийник...)" autocomplete="off">
+                    <div id="search-results" class="search-results hidden"></div>
+                </div>
+            </div>
+        </div>
         <nav>
             <!-- Навигация будет сгенерирована в app.js -->
         </nav>
@@ -217,6 +225,11 @@
                     </div>
 
                     <div class="form-group">
+                        <label for="app-mki-photo">Фото МКИ (URL или заглушка):</label>
+                        <input type="text" id="app-mki-photo" name="mki_photo_url" placeholder="https://example.com/photo.jpg">
+                    </div>
+
+                    <div class="form-group">
                         <label for="app-notes">Общие заметки для партии:</label>
                         <textarea id="app-notes" name="notes" rows="2"></textarea>
                     </div>
@@ -235,14 +248,56 @@
             </div>
         </div>
 
+        <!-- Модальное окно просмотра и обработки заявки (ДЕТАЛИ) -->
+        <div id="application-details-modal" class="modal">
+            <div class="modal-content">
+                <span class="close">&times;</span>
+                <h2 class="modal-title">Детали заявки</h2>
+                
+                <div id="app-details-content">
+                    <div class="details-section">
+                        <div class="details-row" style="margin-bottom: 8px;"><strong>Номер:</strong> <span id="view-app-number"></span></div>
+                        <div class="details-row" style="margin-bottom: 8px;"><strong>Изделие:</strong> <span id="view-app-product"></span></div>
+                        <div class="details-row" style="margin-bottom: 8px;"><strong>Чертеж:</strong> <span id="view-app-drawing"></span></div>
+                        <div class="details-row" style="margin-bottom: 8px;"><strong>Серийный номер:</strong> <span id="view-app-serial"></span></div>
+                        <div class="details-row" style="margin-bottom: 8px;"><strong>Мастер:</strong> <span id="view-app-master"></span></div>
+                        <div class="details-row" style="margin-bottom: 8px;"><strong>Участок:</strong> <span id="view-app-lot"></span></div>
+                        <div class="details-row" style="margin-bottom: 8px;"><strong>Статус:</strong> <span id="view-app-status" class="status-badge"></span></div>
+                    </div>
+
+                    <div id="view-app-mki-section" class="details-section" style="display: none; margin-top: 15px;">
+                        <strong>Фото МКИ:</strong>
+                        <div class="mki-photo-container" style="margin-top: 5px;">
+                            <img id="view-app-mki-img" src="" alt="МКИ" style="max-width: 100%; border-radius: 8px;">
+                        </div>
+                    </div>
+
+                    <div id="view-app-discrepancies-section" class="details-section" style="margin-top: 20px;">
+                        <strong>Выявленные несоответствия:</strong>
+                        <div id="view-app-discrepancies-list" class="task-grid" style="grid-template-columns: 1fr; gap: 10px; margin-top: 10px;">
+                            <!-- Список несоответствий -->
+                        </div>
+                    </div>
+
+                    <div id="view-app-actions" class="modal-actions" style="margin-top: 20px; display: flex; flex-direction: column; gap: 10px;">
+                        <!-- Кнопки действий будут здесь -->
+                    </div>
+                </div>
+            </div>
+        </div>
+
         <!-- Модальное окно для Несоответствий -->
         <div id="discrepancy-modal" class="modal">
             <div class="modal-content">
                 <span class="close">&times;</span>
-                <h2 class="modal-title">Регистрация несоответствия</h2>
+                <h2 class="modal-title" style="font-size: 18px;">Регистрация несоответствия</h2>
                 <form id="discrepancy-form">
                     <input type="hidden" name="id">
                     <input type="hidden" name="application_id">
+                    
+                    <div id="disc-app-info" class="details-row" style="margin-bottom: 15px; font-size: 14px; color: #666; display: none;">
+                        <strong>Заявка/Изделие:</strong> <span id="disc-app-number-val"></span>
+                    </div>
                     
                     <div class="form-group">
                         <label for="disc-title">Краткое описание:</label>
@@ -253,6 +308,53 @@
                         <label for="disc-description">Подробное описание:</label>
                         <textarea id="disc-description" name="description" rows="3"></textarea>
                     </div>
+
+                    <div class="form-group">
+                        <label for="disc-photo">Фото дефекта (URL):</label>
+                        <input type="text" id="disc-photo" name="defect_photo_url" placeholder="URL фото">
+                    </div>
+
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label for="disc-status">Статус:</label>
+                            <select id="disc-status" name="status">
+                                <option value="new">Новое</option>
+                                <option value="assigned">Назначено</option>
+                                <option value="in_progress">В работе</option>
+                                <option value="resolved">Устранено (Мастер)</option>
+                                <option value="closed">Закрыто (Контролер/Директор)</option>
+                            </select>
+                        </div>
+                        <div class="form-group" id="closure-scenario-group" style="display: none;">
+                            <label for="disc-scenario">Сценарий закрытия:</label>
+                            <select id="disc-scenario" name="closure_scenario">
+                                <option value="" selected disabled>-- Выберите решение --</option>
+                                <option value="fixed">Устранено (по чертежу)</option>
+                                <option value="resolution_card">Карточка разрешения (КР)</option>
+                                <option value="political">Политическое решение</option>
+                                <option value="scrap">БРАК (Списание)</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="form-group" id="scenario-details-group" style="display: none;">
+                        <label for="disc-details">Детали решения (№ КР или причина):</label>
+                        <textarea id="disc-details" name="details" rows="2"></textarea>
+                    </div>
+
+                    <!-- Поля для МАСТЕРА (Устранение и Особое мнение) -->
+                    <div id="master-action-fields" style="display: none; border-top: 1px solid #eee; padding-top: 15px; margin-top: 15px;">
+                        <div class="form-group" id="fix-photo-group">
+                            <label for="disc-fix-photo">Фото устранения (URL):</label>
+                            <input type="text" id="disc-fix-photo" name="fix_photo_url" placeholder="URL фото результата">
+                        </div>
+                        <div class="form-group" id="special-opinion-group">
+                            <label for="disc-special-opinion">Особое мнение / Причина спора:</label>
+                            <textarea id="disc-special-opinion" name="special_opinion" rows="2" placeholder="Опишите, если не согласны с дефектом или нужен КР"></textarea>
+                        </div>
+                    </div>
+
+                    <div class="form-grid">
 
                     <div class="form-grid">
                         <div class="form-group">
@@ -274,11 +376,14 @@
 
                     <div class="form-group">
                         <label for="disc-due-date">Срок устранения:</label>
-                        <input type="date" id="disc-due-date" name="due_date" required>
+                        <input type="datetime-local" id="disc-due-date" name="due_date" required>
                     </div>
 
                     <button type="submit" class="button">Зафиксировать дефект</button>
-                </form>
+                    <div id="discrepancy-actions" class="modal-actions" style="margin-top: 20px; display: flex; flex-direction: column; gap: 10px;">
+                        <!-- Кнопки действий будут здесь -->
+                    </div>
+                </div>
             </div>
         </div>
     </div>
@@ -288,10 +393,12 @@
     <!-- API клиент -->
     <script src="/js/api.js"></script>
     <!-- Компоненты -->
+    <script src="/js/components/UIComponents.js"></script>
     <script src="/js/components/UserModal.js"></script>
     <script src="/js/components/LotModal.js"></script>
     <script src="/js/components/ProductModal.js"></script>
     <script src="/js/components/ApplicationModal.js"></script>
+    <script src="/js/components/ApplicationDetailsModal.js"></script>
     <script src="/js/components/DiscrepancyModal.js"></script>
     <!-- Основная логика -->
     <script src="/js/auth.js"></script>

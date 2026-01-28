@@ -10,8 +10,8 @@ const asyncHandler = fn => (req, res, next) => {
 class ApplicationController {
 
     static getAllApplications = asyncHandler(async (req, res) => {
-        const { limit = 100, offset = 0, status } = req.query;
-        const filters = { status };
+        const { limit = 100, offset = 0, status, master_id, inspector_id, lot_id } = req.query;
+        const filters = { status, master_id, inspector_id, lot_id };
         
         // Передаем req.user в сервис для ролевой фильтрации
         const result = await ApplicationService.getAllApplications(filters, req.user, parseInt(limit), parseInt(offset));
@@ -52,7 +52,8 @@ class ApplicationController {
         const result = await ApplicationService.updateApplicationStatus(
             parseInt(req.params.id),
             status,
-            rejectionReason
+            rejectionReason,
+            req.user
         );
         res.json(result);
     });

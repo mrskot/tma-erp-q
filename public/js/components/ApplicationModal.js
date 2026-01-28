@@ -16,6 +16,7 @@ class ApplicationModal {
         this.drawingNumberInput = document.getElementById('app-drawing-number');
         this.desiredTimeInput = document.getElementById('app-desired-time');
         this.quantityInput = document.getElementById('app-quantity');
+        this.mkiPhotoInput = document.getElementById('app-mki-photo');
         this.hasSerialsCheckbox = document.getElementById('app-has-serials');
         this.serialsContainer = document.getElementById('app-serials-container');
         this.masterIdSelect = document.getElementById('app-master-id');
@@ -226,6 +227,7 @@ class ApplicationModal {
             drawing_number: this.drawingNumberInput.value.trim(),
             desired_inspection_time: new Date(this.desiredTimeInput.value).toISOString(),
             quantity: quantity,
+            mki_photo_url: this.mkiPhotoInput ? this.mkiPhotoInput.value.trim() : null,
             has_serial_numbers: has_serial_numbers,
             serial_numbers: serial_numbers,
             notes: this.notesTextarea.value.trim()

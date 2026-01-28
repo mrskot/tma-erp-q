@@ -31,28 +31,29 @@ class App {
         this.lotModal = null;
         this.productModal = null;
         this.applicationModal = null;
-        this.discrepancyModal = null; // Добавляем модальное окно для несоответствий
+        this.applicationDetailsModal = null; // Новое окно деталей
+        this.discrepancyModal = null;
 
         // --- КОНФИГУРАЦИЯ РОЛЕЙ И ДОСТУПА ---
         this.ROLES_CONFIG = {
             admin: {
-                defaultPage: 'users',
-                allowedPages: ['users', 'lots', 'products', 'applications', 'discrepancies'],
+                defaultPage: 'dashboard',
+                allowedPages: ['dashboard', 'users', 'lots', 'products', 'applications', 'discrepancies'],
                 name: 'Администратор'
             },
             director: {
-                defaultPage: 'applications',
-                allowedPages: ['lots', 'products', 'applications', 'discrepancies'],
+                defaultPage: 'dashboard',
+                allowedPages: ['dashboard', 'lots', 'products', 'applications', 'discrepancies'],
                 name: 'Директор'
             },
             inspector: {
-                defaultPage: 'applications',
-                allowedPages: ['applications', 'discrepancies'],
+                defaultPage: 'dashboard',
+                allowedPages: ['dashboard', 'applications', 'discrepancies'],
                 name: 'Контролёр ОТК'
             },
             master: {
-                defaultPage: 'applications',
-                allowedPages: ['applications', 'discrepancies'],
+                defaultPage: 'dashboard',
+                allowedPages: ['dashboard', 'applications', 'discrepancies'],
                 name: 'Мастер участка'
             },
             worker: {
@@ -63,6 +64,7 @@ class App {
         };
 
         this.PAGE_NAMES = {
+            dashboard: 'Главная',
             users: 'Пользователи',
             lots: 'Участки',
             products: 'Изделия',
@@ -80,8 +82,101 @@ class App {
         this.nav.addEventListener('click', (e) => this.handleNavClick(e));
         this.pageContent.addEventListener('click', (e) => this.handlePageContentClick(e));
         this.pageContent.addEventListener('change', (e) => this.handlePageContentChange(e));
-        this.currentApplicationFilter = 'all'; // Добавляем фильтр для заявок
+        
+        // Поиск
+        this.searchInput = document.getElementById('global-search-input');
+        this.searchResults = document.getElementById('search-results');
+        if (this.searchInput) {
+            this.searchInput.addEventListener('input', (e) => this.handleSearch(e));
+            document.addEventListener('click', (e) => {
+                if (!this.searchInput.contains(e.target) && !this.searchResults.contains(e.target)) {
+                    this.searchResults.classList.add('hidden');
+                }
+            });
+        }
+
+        this.currentApplicationFilter = 'all'; 
+        this.currentAppLotFilter = 'all';
+        this.currentDiscStatusFilter = 'all';
+        this.currentDiscSeverityFilter = 'all';
         this.updateViewState();
+    }
+
+    async handleSearch(event) {
+        const query = event.target.value.trim();
+        if (query.length < 2) {
+            this.searchResults.classList.add('hidden');
+            return;
+        }
+
+        try {
+            const response = await window.TMA_API.request(`/search?q=${encodeURIComponent(query)}`);
+            const result = await response.json();
+            
+            if (result.success) {
+                this.renderSearchResults(result.data);
+            }
+        } catch (error) {
+            console.error('Search error:', error);
+        }
+    }
+
+    renderSearchResults(data) {
+        this.searchResults.innerHTML = '';
+        let hasResults = false;
+
+        if (data.applications && data.applications.length > 0) {
+            hasResults = true;
+            const group = document.createElement('div');
+            group.className = 'search-result-group';
+            group.innerHTML = '<div class="search-result-header">Заявки</div>';
+            data.applications.forEach(app => {
+                const item = document.createElement('div');
+                item.className = 'search-result-item';
+                item.innerHTML = `
+                    <span class="badge status-${app.status}">${app.status}</span>
+                    <span class="title">${app.application_number}</span>
+                    <span class="subtitle">${app.drawing_number || ''} ${app.serial_number || ''}</span>
+                `;
+                item.onclick = () => {
+                    this.viewApplication(app.id);
+                    this.searchResults.classList.add('hidden');
+                    this.searchInput.value = '';
+                };
+                group.appendChild(item);
+            });
+            this.searchResults.appendChild(group);
+        }
+
+        if (data.discrepancies && data.discrepancies.length > 0) {
+            hasResults = true;
+            const group = document.createElement('div');
+            group.className = 'search-result-group';
+            group.innerHTML = '<div class="search-result-header">Несоответствия</div>';
+            data.discrepancies.forEach(disc => {
+                const item = document.createElement('div');
+                item.className = 'search-result-item';
+                item.innerHTML = `
+                    <span class="badge severity-${disc.severity}">${disc.severity}</span>
+                    <span class="title">${disc.title}</span>
+                    <span class="subtitle">${disc.discrepancy_number}</span>
+                `;
+                item.onclick = () => {
+                    this.openEditDiscrepancyModal(disc.id);
+                    this.searchResults.classList.add('hidden');
+                    this.searchInput.value = '';
+                };
+                group.appendChild(item);
+            });
+            this.searchResults.appendChild(group);
+        }
+
+        if (hasResults) {
+            this.searchResults.classList.remove('hidden');
+        } else {
+            this.searchResults.innerHTML = '<div style="padding:10px; font-size:12px; color:#999;">Ничего не найдено</div>';
+            this.searchResults.classList.remove('hidden');
+        }
     }
 
     updateViewState() {
@@ -171,6 +266,7 @@ class App {
         this.pageContent.innerHTML = `<h2>Загрузка раздела "${this.PAGE_NAMES[pageName] || pageName}"...</h2>`;
 
         switch (pageName) {
+            case 'dashboard': this.renderDashboard(); break;
             case 'users': this.renderUsersPage(); break;
             case 'lots': this.renderLotsPage(); break;
             case 'products': this.renderProductsPage(); break;
@@ -181,6 +277,105 @@ class App {
     }
 
     // --- Методы рендеринга страниц ---
+
+    async renderDashboard() {
+        const user = window.AuthManager.getUser();
+        this.pageContent.innerHTML = `<h3>Панель управления</h3><p>Загрузка статистики...</p>`;
+        
+        try {
+            if (['admin', 'director'].includes(user.role)) {
+                const [appStatsRes, discStatsRes] = await Promise.all([
+                    window.TMA_API.getApplicationStatistics(),
+                    window.TMA_API.getDiscrepancyStatistics()
+                ]);
+
+                const appStats = appStatsRes.data;
+                const discStats = discStatsRes.data;
+
+                this.pageContent.innerHTML = `
+                    <div class="dashboard-grid">
+                        <div class="dashboard-card">
+                            <h4>Заявки на приёмку</h4>
+                            <div class="stats-list">
+                                <div class="stat-item"><span>Новые:</span> <strong>${appStats.new || 0}</strong></div>
+                                <div class="stat-item"><span>В работе:</span> <strong>${appStats.in_progress || 0}</strong></div>
+                                <div class="stat-item"><span>Ожидают назначения:</span> <strong>${appStats.assigned || 0}</strong></div>
+                                <div class="stat-item text-success"><span>Принято:</span> <strong>${appStats.accepted || 0}</strong></div>
+                                <div class="stat-item text-danger"><span>Отклонено:</span> <strong>${appStats.rejected || 0}</strong></div>
+                            </div>
+                        </div>
+                        <div class="dashboard-card">
+                            <h4>Несоответствия</h4>
+                            <div class="stats-list">
+                                <div class="stat-item"><span>Новые:</span> <strong>${discStats.new || 0}</strong></div>
+                                <div class="stat-item"><span>В работе:</span> <strong>${discStats.in_progress || 0}</strong></div>
+                                <div class="stat-item text-success"><span>Закрыто:</span> <strong>${discStats.closed || 0}</strong></div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            } else if (user.role === 'master') {
+                const [appsRes, discRes] = await Promise.all([
+                    window.TMA_API.getApplications({ master_id: user.id, status: 'new,assigned,in_progress' }),
+                    window.TMA_API.getDiscrepancies({ responsible_id: user.id, status: 'new,assigned,in_progress' })
+                ]);
+
+                this.pageContent.innerHTML = `
+                    <div class="dashboard-grid">
+                        <div class="dashboard-card full-width">
+                            <h4>🚨 Внимание (Несоответствия в работе)</h4>
+                            <div class="task-grid" id="master-disc-grid"></div>
+                        </div>
+                        <div class="dashboard-card full-width">
+                            <h4>📑 Мои активные заявки</h4>
+                            <div class="task-grid" id="master-apps-grid"></div>
+                            ${appsRes.data.length > 6 ? '<button class="button-link" onclick="app.showPage(\'applications\')">Смотреть все заявки</button>' : ''}
+                        </div>
+                    </div>
+                `;
+
+                const discGrid = document.getElementById('master-disc-grid');
+                if (discRes.data.length > 0) {
+                    discRes.data.forEach(disc => {
+                        discGrid.appendChild(window.UI.createDiscrepancyCard(disc, (d) => this.openEditDiscrepancyModal(d.id)));
+                    });
+                } else {
+                    discGrid.innerHTML = '<p class="subtitle">Дефектов в работе нет. Отлично!</p>';
+                }
+
+                const appsGrid = document.getElementById('master-apps-grid');
+                if (appsRes.data.length > 0) {
+                    appsRes.data.slice(0, 6).forEach(app => {
+                        appsGrid.appendChild(window.UI.createApplicationCard(app, (a) => this.viewApplication(a.id)));
+                    });
+                } else {
+                    appsGrid.innerHTML = '<p class="subtitle">Активных заявок нет.</p>';
+                }
+
+            } else if (user.role === 'inspector') {
+                const appsRes = await window.TMA_API.getApplications({ inspector_id: user.id, status: 'assigned,in_progress' });
+
+                this.pageContent.innerHTML = `
+                    <div class="dashboard-card full-width">
+                        <h4>📋 Очередь на приёмку (${appsRes.data.length})</h4>
+                        <div class="task-grid" id="inspector-apps-grid"></div>
+                    </div>
+                `;
+
+                const appsGrid = document.getElementById('inspector-apps-grid');
+                if (appsRes.data.length > 0) {
+                    appsRes.data.forEach(app => {
+                        appsGrid.appendChild(window.UI.createApplicationCard(app, (a) => this.viewApplication(a.id)));
+                    });
+                } else {
+                    appsGrid.innerHTML = '<p class="subtitle">Очередь пуста. Все изделия проверены!</p>';
+                }
+            }
+        } catch (error) {
+            console.error('Ошибка Dashboard:', error);
+            this.pageContent.innerHTML = `<p class="error-message">Ошибка загрузки статистики: ${error.message}</p>`;
+        }
+    }
 
     async renderUsersPage() {
         this.pageContent.innerHTML = `<h3>Управление пользователями</h3><p>Загрузка...</p>`;
@@ -366,43 +561,28 @@ class App {
             if (this.currentApplicationFilter && this.currentApplicationFilter !== 'all') {
                 filters.status = this.currentApplicationFilter;
             }
-            const response = await window.TMA_API.getApplications(filters);
+            if (this.currentAppLotFilter && this.currentAppLotFilter !== 'all') {
+                filters.lot_id = this.currentAppLotFilter;
+            }
+
+            const [response, lotsResponse] = await Promise.all([
+                window.TMA_API.getApplications(filters),
+                window.TMA_API.getLots('active')
+            ]);
+
             if (!response.success || !Array.isArray(response.data)) throw new Error(response.message || 'Не удалось загрузить заявки.');
             
             const applications = response.data;
-            
-            // Статусы заявок
-            const statusMap = {
-                'new': 'Новая',
-                'assigned': 'Назначена',
-                'in_progress': 'В работе',
-                'accepted': 'Принята',
-                'rejected': 'Отклонена'
-            };
-            
-            let tableRows = applications.map(app => {
-                const statusClass = `status-${app.status}`;
-                return `<tr data-application-id="${app.id}">
-                    <td data-label="Номер">${app.application_number || '—'}</td>
-                    <td data-label="Изделие">${app.product_name || '—'}</td>
-                    <td data-label="Участок">${app.lot_name || '—'}</td>
-                    <td data-label="Мастер">${app.master_name || '—'}</td>
-                    <td data-label="Контролёр">${app.inspector_name || '—'}</td>
-                    <td data-label="Статус"><span class="status-badge ${statusClass}">${statusMap[app.status] || app.status}</span></td>
-                    <td data-label="Кол-во">${app.quantity || 1}</td>
-                    <td class="actions">
-                        <button class="button-small button-secondary" data-application-id="${app.id}" data-action="view-application" title="Просмотр">👁️</button>
-                        <button class="button-small button-danger" data-application-id="${app.id}" data-action="delete-application" title="Удалить">🗑️</button>
-                    </td>
-                </tr>`;
-            }).join('');
-            
-            if (applications.length === 0) tableRows = `<tr><td colspan="8">Заявки не найдены.</td></tr>`;
+            const lots = lotsResponse.data || [];
             
             this.pageContent.innerHTML = `
                 <div class="page-header">
                     <h3>Заявки</h3>
                     <div class="page-controls">
+                        <select id="app-lot-filter">
+                            <option value="all">Все участки</option>
+                            ${lots.map(l => `<option value="${l.id}" ${this.currentAppLotFilter == l.id ? 'selected' : ''}>${l.name}</option>`).join('')}
+                        </select>
                         <select id="application-status-filter">
                             <option value="all" ${this.currentApplicationFilter === 'all' ? 'selected' : ''}>Все статусы</option>
                             <option value="new" ${this.currentApplicationFilter === 'new' ? 'selected' : ''}>Новые</option>
@@ -411,86 +591,81 @@ class App {
                             <option value="accepted" ${this.currentApplicationFilter === 'accepted' ? 'selected' : ''}>Принятые</option>
                             <option value="rejected" ${this.currentApplicationFilter === 'rejected' ? 'selected' : ''}>Отклоненные</option>
                         </select>
-                        <button id="create-application-btn" class="button">✨ Создать заявку</button>
                     </div>
                 </div>
-                <table class="crud-table">
-                    <thead>
-                        <tr>
-                            <th>Номер</th>
-                            <th>Изделие</th>
-                            <th>Участок</th>
-                            <th>Мастер</th>
-                            <th>Контролёр</th>
-                            <th>Статус</th>
-                            <th>Кол-во</th>
-                            <th>Действия</th>
-                        </tr>
-                    </thead>
-                    <tbody>${tableRows}</tbody>
-                </table>`;
+                <div class="task-grid" id="applications-grid"></div>
+                ${!window.AuthManager.hasRole('worker') ? `
+                <div class="sticky-footer-action">
+                    <button id="create-application-btn" class="button">✨ Создать партию заявок</button>
+                </div>` : ''}`;
+            
+            const grid = document.getElementById('applications-grid');
+            if (applications.length === 0) {
+                grid.innerHTML = '<p class="subtitle">Заявки не найдены.</p>';
+            } else {
+                applications.forEach(app => {
+                    grid.appendChild(window.UI.createApplicationCard(app, (a) => this.viewApplication(a.id)));
+                });
+            }
         } catch (error) {
             console.error('Ошибка при загрузке заявок:', error);
             this.pageContent.innerHTML = `<h3>Заявки</h3><p class="error-message">Ошибка: ${error.message}</p>`;
         }
     }
+
     async renderDiscrepanciesPage() {
         this.pageContent.innerHTML = `<h3>Несоответствия</h3><p>Загрузка...</p>`;
         try {
-            const response = await window.TMA_API.getDiscrepancies();
+            const user = window.AuthManager.getUser();
+            const filters = {};
+            if (this.currentDiscStatusFilter && this.currentDiscStatusFilter !== 'all') {
+                filters.status = this.currentDiscStatusFilter;
+            }
+            if (this.currentDiscSeverityFilter && this.currentDiscSeverityFilter !== 'all') {
+                filters.severity = this.currentDiscSeverityFilter;
+            }
+            // Мастер видит только свои участки или те где он ответственный (опционально, пока оставим все для админа/мастера)
+            
+            const response = await window.TMA_API.getDiscrepancies(filters);
             if (!response.success || !Array.isArray(response.data)) throw new Error(response.message || 'Не удалось загрузить несоответствия.');
             
             const discrepancies = response.data;
-            const statusMap = {
-                'new': 'Новое',
-                'assigned': 'Назначено',
-                'in_progress': 'В работе',
-                'resolved': 'Исправлено',
-                'closed': 'Закрыто'
-            };
-            const severityMap = {
-                'low': 'Низкая',
-                'medium': 'Средняя',
-                'high': 'Высокая',
-                'critical': 'Критическая'
-            };
-
-            let tableRows = discrepancies.map(disc => {
-                const statusClass = `status-${disc.status}`;
-                const severityClass = `severity-${disc.severity}`;
-                return `<tr data-discrepancy-id="${disc.id}">
-                    <td data-label="Заголовок">${disc.title}</td>
-                    <td data-label="Статус"><span class="status-badge ${statusClass}">${statusMap[disc.status] || disc.status}</span></td>
-                    <td data-label="Серьезность"><span class="severity-badge ${severityClass}">${severityMap[disc.severity] || disc.severity}</span></td>
-                    <td data-label="Срок">${new Date(disc.due_date).toLocaleDateString()}</td>
-                    <td class="actions">
-                        <button class="button-small button-secondary" data-discrepancy-id="${disc.id}" data-action="edit-discrepancy" title="Редактировать">✏️</button>
-                        <button class="button-small button-danger" data-discrepancy-id="${disc.id}" data-action="delete-discrepancy" title="Удалить">🗑️</button>
-                    </td>
-                </tr>`;
-            }).join('');
-
-            if (discrepancies.length === 0) tableRows = `<tr><td colspan="5">Несоответствия не найдены.</td></tr>`;
 
             this.pageContent.innerHTML = `
                 <div class="page-header">
                     <h3>Несоответствия</h3>
                     <div class="page-controls">
-                        <button id="create-discrepancy-btn" class="button">✨ Зафиксировать дефект</button>
+                        <select id="disc-status-filter">
+                            <option value="all">Все статусы</option>
+                            <option value="new" ${this.currentDiscStatusFilter === 'new' ? 'selected' : ''}>Новые</option>
+                            <option value="assigned" ${this.currentDiscStatusFilter === 'assigned' ? 'selected' : ''}>Назначенные</option>
+                            <option value="in_progress" ${this.currentDiscStatusFilter === 'in_progress' ? 'selected' : ''}>В работе</option>
+                            <option value="resolved" ${this.currentDiscStatusFilter === 'resolved' ? 'selected' : ''}>Исправлено</option>
+                            <option value="closed" ${this.currentDiscStatusFilter === 'closed' ? 'selected' : ''}>Закрыто</option>
+                        </select>
+                        <select id="disc-severity-filter">
+                            <option value="all">Любая серьезность</option>
+                            <option value="low" ${this.currentDiscSeverityFilter === 'low' ? 'selected' : ''}>Низкая</option>
+                            <option value="medium" ${this.currentDiscSeverityFilter === 'medium' ? 'selected' : ''}>Средняя</option>
+                            <option value="high" ${this.currentDiscSeverityFilter === 'high' ? 'selected' : ''}>Высокая</option>
+                            <option value="critical" ${this.currentDiscSeverityFilter === 'critical' ? 'selected' : ''}>Критическая</option>
+                        </select>
                     </div>
                 </div>
-                <table class="crud-table">
-                    <thead>
-                        <tr>
-                            <th>Заголовок</th>
-                            <th>Статус</th>
-                            <th>Серьезность</th>
-                            <th>Срок</th>
-                            <th>Действия</th>
-                        </tr>
-                    </thead>
-                    <tbody>${tableRows}</tbody>
-                </table>`;
+                <div class="task-grid" id="discrepancies-grid"></div>
+                ${(window.AuthManager.isInspector() || window.AuthManager.hasRole('master')) ? `
+                <div class="sticky-footer-action">
+                    <button id="create-discrepancy-btn" class="button">✨ Зафиксировать несоответствие</button>
+                </div>` : ''}`;
+
+            const grid = document.getElementById('discrepancies-grid');
+            if (discrepancies.length === 0) {
+                grid.innerHTML = '<p class="subtitle">Несоответствия не найдены.</p>';
+            } else {
+                discrepancies.forEach(disc => {
+                    grid.appendChild(window.UI.createDiscrepancyCard(disc, (d) => this.openEditDiscrepancyModal(d.id)));
+                });
+            }
         } catch (error) {
             console.error('Ошибка при загрузке несоответствий:', error);
             this.pageContent.innerHTML = `<h3>Несоответствия</h3><p class="error-message">Ошибка: ${error.message}</p>`;
@@ -544,6 +719,7 @@ class App {
 
     handlePageContentChange(event) {
         const target = event.target;
+        console.log('Filter changed:', target.id, target.value); // Отладка
         if (target.matches('#user-status-filter')) {
             this.currentUserFilter = target.value;
             this.renderUsersPage();
@@ -559,6 +735,19 @@ class App {
         if (target.matches('#application-status-filter')) {
             this.currentApplicationFilter = target.value;
             this.renderApplicationsPage();
+        }
+        if (target.matches('#app-lot-filter')) {
+            this.currentAppLotFilter = target.value;
+            console.log('App lot filter set to:', this.currentAppLotFilter);
+            this.renderApplicationsPage();
+        }
+        if (target.matches('#disc-status-filter')) {
+            this.currentDiscStatusFilter = target.value;
+            this.renderDiscrepanciesPage();
+        }
+        if (target.matches('#disc-severity-filter')) {
+            this.currentDiscSeverityFilter = target.value;
+            this.renderDiscrepanciesPage();
         }
     }
 
@@ -731,12 +920,16 @@ class App {
     }
 
     viewApplication(applicationId) {
-        alert(`Просмотр заявки #${applicationId} (в разработке)`);
+        if (this.applicationDetailsModal) {
+            this.applicationDetailsModal.show(applicationId);
+        } else {
+            alert(`Просмотр заявки #${applicationId}`);
+        }
     }
     
     // --- CRUD Несоответствий ---
 
-    async openCreateDiscrepancyModal(applicationId = null) {
+    async openCreateDiscrepancyModal(applicationId = null, onSaveCallback = null) {
         if (!this.discrepancyModal) return;
         this.discrepancyModal.show({
             mode: 'create',
@@ -744,7 +937,11 @@ class App {
             onSave: async (data) => {
                 await window.TMA_API.createDiscrepancy(data);
                 this.discrepancyModal.hide();
-                this.renderDiscrepanciesPage();
+                if (onSaveCallback) {
+                    await onSaveCallback();
+                } else {
+                    this.renderDiscrepanciesPage();
+                }
             }
         });
     }
@@ -794,14 +991,15 @@ class App {
 document.addEventListener('DOMContentLoaded', () => {
     // Убедимся, что все классы загружены, прежде чем создавать экземпляры
     if (window.AuthManager && window.TMA_API && typeof UserModal !== 'undefined' && typeof LotModal !== 'undefined' && typeof ProductModal !== 'undefined' && typeof ApplicationModal !== 'undefined' && typeof DiscrepancyModal !== 'undefined') {
-        // Создаем главный экземпляр приложения
-        const app = new App();
+        // Создаем главный экземпляр приложения и делаем его глобальным
+        window.app = new App();
         
         // Инициализируем модальные окна и передаем их в приложение
         app.userModal = new UserModal();
         app.lotModal = new LotModal();
         app.productModal = new ProductModal();
         app.applicationModal = new ApplicationModal();
+        app.applicationDetailsModal = new ApplicationDetailsModal(); // Инициализация
         app.discrepancyModal = new DiscrepancyModal();
 
 
