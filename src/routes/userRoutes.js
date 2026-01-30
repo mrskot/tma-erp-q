@@ -3,6 +3,7 @@ const router = express.Router();
 const { body, param, query } = require('express-validator');
 const UserController = require('../controllers/userController');
 const { authenticateJWT } = require('../middleware/auth');
+const rbacMiddleware = require('../middleware/rbacMiddleware'); 
 
 // Валидация для аутентификации
 const authenticateValidation = [
@@ -97,35 +98,39 @@ router.post('/auth/refresh', authenticateJWT, UserController.refreshToken);
 // Получение профиля текущего пользователя
 router.get('/profile', authenticateJWT, UserController.getProfile);
 
-// Получение всех пользователей (только для админов)
-router.get('/', authenticateJWT, queryValidation, UserController.getAllUsers);
+// Получение всех пользователей
+router.get('/', authenticateJWT, rbacMiddleware(['admin', 'director', 'inspector', 'master']), queryValidation, UserController.getAllUsers);
 
 // Создание пользователя (только для админов)
-router.post('/', authenticateJWT, createUserValidation, UserController.createUser);
+router.post('/', authenticateJWT, rbacMiddleware(['admin']), createUserValidation, UserController.createUser);
 
 // Обновление пользователя (только для админов)
-router.put('/:id', authenticateJWT, updateUserValidation, UserController.updateUser);
+router.put('/:id', authenticateJWT, rbacMiddleware(['admin']), updateUserValidation, UserController.updateUser);
 
 // Удаление пользователя (деактивация) (только для админов)
 router.delete('/:id', authenticateJWT,
+  rbacMiddleware(['admin']),
   param('id').isInt().withMessage('ID должен быть числом'),
   UserController.deleteUser
 );
 
 // Восстановление пользователя (только для админов)
 router.post('/:id/restore', authenticateJWT,
+  rbacMiddleware(['admin']),
   param('id').isInt().withMessage('ID должен быть числом'),
   UserController.reactivateUser
 );
 
 // Получение пользователей по роли
 router.get('/role/:role', authenticateJWT,
+  rbacMiddleware(['admin', 'director', 'inspector', 'master']),
   param('role').isIn(['worker', 'master', 'inspector', 'director', 'admin']).withMessage('Недопустимая роль'),
   UserController.getUsersByRole
 );
 
 // Сброс PIN-кода (только для админов)
 router.post('/reset-pin', authenticateJWT,
+  rbacMiddleware(['admin']),
   body('telegram_id').notEmpty().withMessage('Telegram ID обязателен'),
   UserController.resetPinCode
 );

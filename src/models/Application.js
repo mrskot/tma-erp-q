@@ -18,7 +18,7 @@ class Application {
       .first();
   }
 
-  static async findAll({ filters = {}, limit = 100, offset = 0, user = null }) {
+  static async findAll({ filters = {}, limit = 100, offset = 0, user = null } = {}) {
     const query = db('applications as a')
       .select(
         'a.*',
@@ -41,13 +41,21 @@ class Application {
       if (user.role === 'master') {
         query.andWhere('a.master_id', user.id);
       } else if (user.role === 'inspector') {
-        query.andWhere('a.inspector_id', user.id);
+        // Контролер видит или назначенные ему, или вообще новые (никому не назначенные)
+        if (filters.status !== 'new') {
+            query.andWhere(function() {
+                this.where('a.inspector_id', user.id)
+                  .orWhereNull('a.inspector_id');
+            });
+        }
       }
     }
 
     if (filters.master_id) {
         query.andWhere('a.master_id', filters.master_id);
     }
+    
+    // Если передан фильтр по инспектору (даже для админа), применяем его
     if (filters.inspector_id) {
         query.andWhere('a.inspector_id', filters.inspector_id);
     }
@@ -78,10 +86,9 @@ class Application {
   }
 
   static async create(appData) {
-    const [app] = await db('applications')
-      .insert(appData)
-      .returning('*');
-    return app;
+    const [id] = await db('applications')
+      .insert(appData);
+    return this.findById(id);
   }
 
   static async createBatch(appsData) {
@@ -89,22 +96,21 @@ class Application {
       return [];
     }
     return db.transaction(async (trx) => {
-      const apps = await trx('applications')
-        .insert(appsData)
-        .returning('*');
-      return apps;
+      // Для SQLite insert не всегда возвращает все ID, поэтому возвращаем созданные записи по номерам
+      await trx('applications').insert(appsData);
+      const numbers = appsData.map(a => a.application_number);
+      return trx('applications').whereIn('application_number', numbers);
     });
   }
 
   static async update(id, appData) {
-    const [app] = await db('applications')
+    await db('applications')
       .where({ id })
       .update({
         ...appData,
         updated_at: db.fn.now()
-      })
-      .returning('*');
-    return app;
+      });
+    return this.findById(id);
   }
 
   static async delete(id) {
@@ -138,11 +144,11 @@ class Application {
       updateData.rejection_reason = rejectionReason;
     }
 
-    const [app] = await db('applications')
+    await db('applications')
       .where({ id })
-      .update(updateData)
-      .returning('*');
-    return app;
+      .update(updateData);
+    
+    return this.findById(id);
   }
 }
 

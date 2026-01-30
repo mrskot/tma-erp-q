@@ -96,6 +96,15 @@ class ApplicationDetailsModal {
         
         // 1. Действия для КОНТРОЛЁРА
         if (user.role === 'inspector' || user.role === 'admin') {
+            // Если заявка новая - контролер может её "взять в работу"
+            if (app.status === 'new') {
+                const takeBtn = document.createElement('button');
+                takeBtn.className = 'button button-primary';
+                takeBtn.textContent = '🔍 Взять на проверку';
+                takeBtn.onclick = () => this.handleStatusChange('in_progress', user.id);
+                this.actionsContainer.appendChild(takeBtn);
+            }
+
             if (app.status === 'assigned' || app.status === 'in_progress') {
                 // Кнопка Принять
                 const acceptBtn = document.createElement('button');
@@ -128,13 +137,21 @@ class ApplicationDetailsModal {
         }
     }
 
-    async handleStatusChange(status) {
+    async handleStatusChange(status, inspectorId = null) {
         try {
-            const result = await window.TMA_API.updateApplicationStatus(this.currentApp.id, status);
-            if (result.success) {
-                this.hide();
-                window.app.showPage('dashboard'); // Обновляем дашборд
+            const payload = { status };
+            if (inspectorId) {
+                // Если мы берем в работу, нужно обновить и инспектора
+                await window.TMA_API.updateApplication(this.currentApp.id, { 
+                    inspector_id: inspectorId,
+                    status: status 
+                });
+            } else {
+                await window.TMA_API.updateApplicationStatus(this.currentApp.id, status);
             }
+            
+            this.hide();
+            window.app.showPage('dashboard'); // Обновляем дашборд
         } catch (e) {
             alert(e.message);
         }

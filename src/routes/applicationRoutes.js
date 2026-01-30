@@ -51,7 +51,7 @@ router.post(
 router.put(
     '/:id',
     param('id').isInt().withMessage('ID должен быть числом'),
-    rbacMiddleware(['admin', 'director', 'master']),
+    rbacMiddleware(['admin', 'director', 'master', 'inspector']),
     [
         body('inspector_id').optional().isInt().withMessage('Inspector ID должен быть целым числом'),
         body('drawing_number').optional().isString().withMessage('Номер чертежа должен быть строкой'),
@@ -74,7 +74,7 @@ router.patch(
 router.delete(
     '/:id',
     param('id').isInt().withMessage('ID должен быть числом'),
-    rbacMiddleware(['admin']),
+    rbacMiddleware(['admin', 'master']),
     ApplicationController.deleteApplication
 );
 

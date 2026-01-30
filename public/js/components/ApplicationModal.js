@@ -91,12 +91,18 @@ class ApplicationModal {
 
         const fragment = document.createDocumentFragment();
         for (let i = 0; i < quantity; i++) {
-            const input = document.createElement('input');
-            input.type = 'text';
-            input.className = 'serial-number-input';
-            input.placeholder = `Серийный номер #${i + 1}`;
-            input.required = true;
-            fragment.appendChild(input);
+            const row = document.createElement('div');
+            row.className = 'serial-photo-row';
+            row.style.marginBottom = '10px';
+            row.style.borderBottom = '1px solid #eee';
+            row.style.paddingBottom = '10px';
+            
+            row.innerHTML = `
+                <div style="font-size: 12px; color: #666; margin-bottom: 5px;">Экземпляр #${i + 1}</div>
+                <input type="text" class="serial-number-input" placeholder="Серийный номер" required style="margin-bottom: 5px;">
+                <input type="text" class="serial-photo-input" placeholder="URL фото МКИ для этого серийника" style="font-size: 12px;">
+            `;
+            fragment.appendChild(row);
         }
         this.serialsContainer.appendChild(fragment);
     }
@@ -204,18 +210,17 @@ class ApplicationModal {
         
         const quantity = parseInt(this.quantityInput.value);
         const has_serial_numbers = this.hasSerialsCheckbox.checked;
-        const serial_numbers = [];
+        const serial_data = [];
 
         if (has_serial_numbers) {
-            this.serialsContainer.querySelectorAll('.serial-number-input').forEach(input => {
-                serial_numbers.push(input.value.trim());
+            this.serialsContainer.querySelectorAll('.serial-photo-row').forEach(row => {
+                serial_data.push({
+                    serial_number: row.querySelector('.serial-number-input').value.trim(),
+                    mki_photo_url: row.querySelector('.serial-photo-input').value.trim()
+                });
             });
-            if (serial_numbers.some(sn => !sn)) {
+            if (serial_data.some(d => !d.serial_number)) {
                 alert('Все поля серийных номеров должны быть заполнены.');
-                return;
-            }
-            if (serial_numbers.length !== quantity) {
-                alert('Количество серийных номеров не совпадает с указанным количеством.');
                 return;
             }
         }
@@ -229,7 +234,7 @@ class ApplicationModal {
             quantity: quantity,
             mki_photo_url: this.mkiPhotoInput ? this.mkiPhotoInput.value.trim() : null,
             has_serial_numbers: has_serial_numbers,
-            serial_numbers: serial_numbers,
+            serial_data: serial_data,
             notes: this.notesTextarea.value.trim()
         };
         

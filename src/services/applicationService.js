@@ -60,16 +60,16 @@ class ApplicationService {
         drawing_number,
         desired_inspection_time,
         quantity = 1,
-        serial_numbers = [],
         has_serial_numbers = false,
-        notes
+        notes,
+        serial_data = []
       } = batchData;
 
       if (!product_id || !lot_id || !master_id || !desired_inspection_time) {
         throw new AppError('Не все обязательные поля были предоставлены.', 400);
       }
       
-      // 1. Поиск изделия для получения контролёра по умолчанию
+      // 1. Поиск изделия
       const product = await Product.findById(product_id);
       if (!product) throw new AppError('Изделие не найдено', 404);
 
@@ -80,10 +80,7 @@ class ApplicationService {
       if (!lot) throw new AppError('Участок не найден', 404);
       if (!master || master.role !== 'master') throw new AppError('Мастер не найден или пользователь не является мастером', 400);
 
-      // 2. Определение контролёра (по умолчанию из изделия)
-      const defaultInspectorId = product.default_inspector_id;
-
-      if (has_serial_numbers && serial_numbers.length !== quantity) {
+      if (has_serial_numbers && (!serial_data || serial_data.length !== quantity)) {
         throw new AppError('Количество серийных номеров не соответствует заявленному количеству.', 400);
       }
 
@@ -91,9 +88,12 @@ class ApplicationService {
       const baseNumber = `APP-${Date.now().toString().slice(-8)}`;
 
       for (let i = 0; i < quantity; i++) {
-        const serial_number = has_serial_numbers ? serial_numbers[i].trim() : null;
-        if (has_serial_numbers && !serial_number) {
-            throw new AppError(`Серийный номер для экземпляра ${i+1} не может быть пустым.`, 400);
+        let serial_number = null;
+        let item_photo_url = notes || null; // Поле notes используем как общую заглушку если нет фото
+
+        if (has_serial_numbers && serial_data[i]) {
+            serial_number = serial_data[i].serial_number;
+            item_photo_url = serial_data[i].mki_photo_url || item_photo_url;
         }
 
         applicationsToCreate.push({
@@ -105,10 +105,10 @@ class ApplicationService {
           desired_inspection_time,
           quantity: 1,
           serial_number,
-          status: defaultInspectorId ? 'assigned' : 'new',
-          inspector_id: defaultInspectorId || null,
-          assigned_at: defaultInspectorId ? new Date() : null,
-          rejection_reason: notes || null
+          status: 'new',
+          inspector_id: null,
+          assigned_at: null,
+          mki_photo_url: item_photo_url
         });
       }
 
@@ -186,7 +186,18 @@ class ApplicationService {
         }
       }
 
-      const updated = await Application.updateStatus(id, status, rejectionReason);
+      // ЛОГИКА "ВЗЯТЬ В РАБОТУ": Автоматическое назначение инспектора
+      let inspector_id = oldApp.inspector_id;
+      if (status === 'in_progress' && !oldApp.inspector_id && user.role === 'inspector') {
+        inspector_id = user.id;
+      }
+
+      // Обновляем статус и инспектора (если изменился)
+      const updated = await Application.update(id, { 
+        status, 
+        inspector_id,
+        rejection_reason: rejectionReason 
+      });
 
       // Логирование смены статуса
       await activityLogService.log({
@@ -209,17 +220,28 @@ class ApplicationService {
   /**
    * Деактивирует (мягкое удаление) заявку.
    * @param {number} id - ID заявки.
+   * @param {object} user - Пользователь, выполняющий операцию.
    * @returns {Promise<object>} - Сообщение об успехе.
    */
-  static async deleteApplication(id) {
+  static async deleteApplication(id, user) {
     try {
       const app = await Application.findById(id);
       if (!app) throw new AppError('Заявка не найдена', 404);
 
+      // Проверка прав для мастера
+      if (user.role === 'master') {
+        if (app.master_id !== user.id) {
+          throw new AppError('Вы можете удалять только свои заявки', 403);
+        }
+        if (app.status !== 'new') {
+          throw new AppError('Нельзя удалить заявку, которая уже находится в работе у контролера', 403);
+        }
+      }
+
       await Application.delete(id);
-      return { success: true, message: 'Заявка деактивирована' };
+      return { success: true, message: 'Заявка успешно удалена' };
     } catch (error) {
-      throw new AppError(`Ошибка удаления заявки: ${error.message}`, 500);
+      throw new AppError(error.message, error.statusCode || 500);
     }
   }
 

@@ -4,8 +4,13 @@ const { validationResult } = require('express-validator');
 class DiscrepancyController {
   static async getAllDiscrepancies(req, res) {
     try {
-      const { limit = 100, offset = 0, status, responsible_id, severity } = req.query;
-      const filters = { status, responsible_id, severity };
+      const { limit = 100, offset = 0, status, responsible_id, severity, application_id } = req.query;
+      const filters = { 
+        status, 
+        responsible_id, 
+        severity,
+        application_id: application_id ? parseInt(application_id, 10) : undefined 
+      };
       const result = await DiscrepancyService.getAllDiscrepancies(filters, parseInt(limit), parseInt(offset));
 
       res.json({

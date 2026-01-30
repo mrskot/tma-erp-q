@@ -315,17 +315,10 @@ class App {
                     </div>
                 `;
             } else if (user.role === 'master') {
-                const [appsRes, discRes] = await Promise.all([
-                    window.TMA_API.getApplications({ master_id: user.id, status: 'new,assigned,in_progress' }),
-                    window.TMA_API.getDiscrepancies({ responsible_id: user.id, status: 'new,assigned,in_progress' })
-                ]);
+                const appsRes = await window.TMA_API.getApplications({ master_id: user.id, status: 'new,assigned,in_progress' });
 
                 this.pageContent.innerHTML = `
                     <div class="dashboard-grid">
-                        <div class="dashboard-card full-width">
-                            <h4>🚨 Внимание (Несоответствия в работе)</h4>
-                            <div class="task-grid" id="master-disc-grid"></div>
-                        </div>
                         <div class="dashboard-card full-width">
                             <h4>📑 Мои активные заявки</h4>
                             <div class="task-grid" id="master-apps-grid"></div>
@@ -333,15 +326,6 @@ class App {
                         </div>
                     </div>
                 `;
-
-                const discGrid = document.getElementById('master-disc-grid');
-                if (discRes.data.length > 0) {
-                    discRes.data.forEach(disc => {
-                        discGrid.appendChild(window.UI.createDiscrepancyCard(disc, (d) => this.openEditDiscrepancyModal(d.id)));
-                    });
-                } else {
-                    discGrid.innerHTML = '<p class="subtitle">Дефектов в работе нет. Отлично!</p>';
-                }
 
                 const appsGrid = document.getElementById('master-apps-grid');
                 if (appsRes.data.length > 0) {
@@ -353,22 +337,41 @@ class App {
                 }
 
             } else if (user.role === 'inspector') {
-                const appsRes = await window.TMA_API.getApplications({ inspector_id: user.id, status: 'assigned,in_progress' });
+                // Запрашиваем свои заявки (в работе) и все новые (свободные)
+                const [myAppsRes, newAppsRes] = await Promise.all([
+                    window.TMA_API.getApplications({ inspector_id: user.id, status: 'assigned,in_progress' }),
+                    window.TMA_API.getApplications({ status: 'new' }) // Для статуса NEW не передаем inspector_id
+                ]);
 
                 this.pageContent.innerHTML = `
-                    <div class="dashboard-card full-width">
-                        <h4>📋 Очередь на приёмку (${appsRes.data.length})</h4>
-                        <div class="task-grid" id="inspector-apps-grid"></div>
+                    <div class="dashboard-grid">
+                        <div class="dashboard-card full-width">
+                            <h4>🆕 Свободные заявки (${newAppsRes.data.length})</h4>
+                            <div class="task-grid" id="inspector-new-apps-grid"></div>
+                        </div>
+                        <div class="dashboard-card full-width">
+                            <h4>📋 В моей работе (${myAppsRes.data.length})</h4>
+                            <div class="task-grid" id="inspector-apps-grid"></div>
+                        </div>
                     </div>
                 `;
 
+                const newAppsGrid = document.getElementById('inspector-new-apps-grid');
+                if (newAppsRes.data && newAppsRes.data.length > 0) {
+                    newAppsRes.data.forEach(app => {
+                        newAppsGrid.appendChild(window.UI.createApplicationCard(app, (a) => this.viewApplication(a.id)));
+                    });
+                } else {
+                    newAppsGrid.innerHTML = '<p class="subtitle">Новых заявок пока нет.</p>';
+                }
+
                 const appsGrid = document.getElementById('inspector-apps-grid');
-                if (appsRes.data.length > 0) {
-                    appsRes.data.forEach(app => {
+                if (myAppsRes.data && myAppsRes.data.length > 0) {
+                    myAppsRes.data.forEach(app => {
                         appsGrid.appendChild(window.UI.createApplicationCard(app, (a) => this.viewApplication(a.id)));
                     });
                 } else {
-                    appsGrid.innerHTML = '<p class="subtitle">Очередь пуста. Все изделия проверены!</p>';
+                    appsGrid.innerHTML = '<p class="subtitle">Вы еще не взяли ни одной заявки в работу.</p>';
                 }
             }
         } catch (error) {
@@ -606,6 +609,10 @@ class App {
                 applications.forEach(app => {
                     grid.appendChild(window.UI.createApplicationCard(app, (a) => this.viewApplication(a.id)));
                 });
+                // Добавляем распорку в конец списка
+                const spacer = document.createElement('div');
+                spacer.className = 'spacer-footer';
+                grid.appendChild(spacer);
             }
         } catch (error) {
             console.error('Ошибка при загрузке заявок:', error);
@@ -665,6 +672,10 @@ class App {
                 discrepancies.forEach(disc => {
                     grid.appendChild(window.UI.createDiscrepancyCard(disc, (d) => this.openEditDiscrepancyModal(d.id)));
                 });
+                // Добавляем распорку в конец списка
+                const spacer = document.createElement('div');
+                spacer.className = 'spacer-footer';
+                grid.appendChild(spacer);
             }
         } catch (error) {
             console.error('Ошибка при загрузке несоответствий:', error);

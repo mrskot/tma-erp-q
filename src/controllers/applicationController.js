@@ -59,7 +59,7 @@ class ApplicationController {
     });
 
     static deleteApplication = asyncHandler(async (req, res) => {
-        const result = await ApplicationService.deleteApplication(parseInt(req.params.id));
+        const result = await ApplicationService.deleteApplication(parseInt(req.params.id), req.user);
         res.json(result);
     });
 

@@ -11,6 +11,10 @@ class Discrepancy {
     const query = db('discrepancies')
       .where({ is_active: true });
 
+    if (filters.application_id) {
+      query.where('application_id', filters.application_id);
+    }
+
     if (filters.status && filters.status !== 'all') {
       const statuses = filters.status.split(',');
       if (statuses.length > 1) {
@@ -57,21 +61,19 @@ class Discrepancy {
   }
 
   static async create(discrepancyData) {
-    const [disc] = await db('discrepancies')
-      .insert(discrepancyData)
-      .returning('*');
-    return disc;
+    const [id] = await db('discrepancies')
+      .insert(discrepancyData);
+    return this.findById(id);
   }
 
   static async update(id, discrepancyData) {
-    const [disc] = await db('discrepancies')
+    await db('discrepancies')
       .where({ id })
       .update({
         ...discrepancyData,
         updated_at: db.fn.now()
-      })
-      .returning('*');
-    return disc;
+      });
+    return this.findById(id);
   }
 
   static async delete(id) {
@@ -112,15 +114,12 @@ class Discrepancy {
     if (status === 'closed') {
       updateData.closed_at = db.fn.now();
     }
-    if (status === 'resolved' && !updateData.closed_at) {
-      // Можно добавить время устранения если нужно
-    }
-
-    const [disc] = await db('discrepancies')
+    
+    await db('discrepancies')
       .where({ id })
-      .update(updateData)
-      .returning('*');
-    return disc;
+      .update(updateData);
+      
+    return this.findById(id);
   }
 
   static async getBySeverity(severity, limit = 100, offset = 0) {

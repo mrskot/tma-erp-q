@@ -22,12 +22,16 @@ class LotModal {
     populateMastersSelect(masters) {
         if (!this.form) return;
         const mainMasterSelect = this.form.elements.main_master_id;
+        const tempMasterSelect = this.form.elements.temp_master_id;
         
-        mainMasterSelect.innerHTML = '<option value="" disabled selected>-- Выберите мастера --</option>';
+        const placeholder = '<option value="" selected>-- Не назначен --</option>';
+        mainMasterSelect.innerHTML = placeholder;
+        tempMasterSelect.innerHTML = placeholder;
 
         masters.forEach(master => {
             const option = new Option(`${master.first_name} ${master.last_name}`, master.id);
-            mainMasterSelect.add(option);
+            mainMasterSelect.add(option.cloneNode(true));
+            tempMasterSelect.add(option);
         });
     }
 
@@ -40,6 +44,7 @@ class LotModal {
 
         // Преобразуем числовые поля
         data.main_master_id = data.main_master_id ? parseInt(data.main_master_id, 10) : null;
+        data.temp_master_id = data.temp_master_id ? parseInt(data.temp_master_id, 10) : null;
         data.distance_to_office = (data.distance_to_office && data.distance_to_office !== '') ? parseFloat(data.distance_to_office) : null;
         data.priority = data.priority ? parseInt(data.priority, 10) : 5; // Значение по умолчанию
 
@@ -85,6 +90,7 @@ class LotModal {
             this.form.elements.name.value = lotData.name || '';
             this.form.elements.code.value = lotData.code || '';
             this.form.elements.main_master_id.value = lotData.main_master_id || '';
+            this.form.elements.temp_master_id.value = lotData.temp_master_id || '';
             this.form.elements.distance_to_office.value = lotData.distance_to_office || '';
         } else {
             title.textContent = 'Создать новый участок';
@@ -100,3 +106,4 @@ class LotModal {
         this.onSave = null;
     }
 }
+
