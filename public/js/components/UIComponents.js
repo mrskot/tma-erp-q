@@ -10,43 +10,73 @@ const UI = {
         const isUrgent = app.status === 'rejected' || (app.status === 'new' && new Date(app.desired_inspection_time) < new Date());
         
         card.className = `task-card card-compact ${isUrgent ? 'urgent-task' : ''}`;
+        card.style.margin = "8px 0"; // Раздвигаем края до упора
         card.onclick = () => onClick(app);
 
+        const statusTranslations = {
+            'new': 'НОВАЯ',
+            'assigned': 'НАЗНАЧЕНА',
+            'in_progress': 'В РАБОТЕ',
+            'accepted': 'ПРИНЯТО',
+            'rejected': 'ОТКЛОНЕНО'
+        };
+
         const statusClass = `bg-status-${app.status}`;
-        const dateStr = new Date(app.created_at).toLocaleDateString();
-        const timeStr = new Date(app.desired_inspection_time).toLocaleString([], { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit' });
+        const createdAt = new Date(app.created_at);
+        const dateStr = createdAt.toLocaleDateString('ru-RU') + ' ' + createdAt.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
+        const timeStr = new Date(app.desired_inspection_time).toLocaleString('ru-RU', { hour: '2-digit', minute: '2-digit', day: '2-digit', month: '2-digit' });
+
+        // Формируем счетчик несоответствий
+        let discCounterHtml = '';
+        const totalDisc = parseInt(app.total_discrepancies || 0);
+        const closedDisc = parseInt(app.closed_discrepancies || 0);
+        
+        if (totalDisc > 0) {
+            const isAllClosed = totalDisc === closedDisc;
+            discCounterHtml = `
+                <div style="background: ${isAllClosed ? '#f6ffed' : '#fff7e6'}; border: 1px solid ${isAllClosed ? '#b7eb8f' : '#ffd591'}; padding: 2px 6px; border-radius: 4px; display: flex; align-items: center; gap: 4px; margin-top: 4px;">
+                    <span style="font-size: 10px; font-weight: 700; color: ${isAllClosed ? '#389e0d' : '#d46b08'};">⚠️ ${totalDisc}/${closedDisc}</span>
+                    <span style="font-size: 9px; color: ${isAllClosed ? '#389e0d' : '#d46b08'};">${isAllClosed ? 'Закрыты' : 'В работе'}</span>
+                </div>
+            `;
+        }
 
         card.innerHTML = `
-            <div class="card-header" style="padding: 6px 10px;">
-                <div style="flex: 1; min-width: 0;">
-                    <div class="title" style="font-size: 13px; font-weight: 700;">${app.product_name || 'Изделие'}</div>
-                    <div class="subtitle" style="font-size: 10px;">${app.application_number} • ${dateStr}</div>
-                </div>
-                <span class="status-badge ${statusClass}" style="font-size: 9px; padding: 2px 6px;">${app.status.toUpperCase()}</span>
-            </div>
-            <div class="card-body" style="padding: 4px 10px; gap: 4px;">
-                <div class="detail-item">
-                    <span class="detail-label">Чертеж</span>
-                    <span class="detail-value">${app.drawing_number || '—'}</span>
-                </div>
-                <div class="detail-item">
-                    <span class="detail-label">Участок</span>
-                    <span class="detail-value">${app.lot_name || '—'}</span>
-                </div>
-                <div class="detail-item">
-                    <span class="detail-label">Серийник</span>
-                    <span class="detail-value">${app.serial_number || '—'}</span>
-                </div>
-                <div class="detail-item">
-                    <span class="detail-label">Мастер</span>
-                    <span class="detail-value">${app.master_name || '—'}</span>
+            <div class="card-header" style="padding: 8px 12px; border-bottom: 1px solid #f5f5f5;">
+                <div style="display: flex; justify-content: space-between; align-items: flex-start; width: 100%;">
+                    <div style="flex: 1; min-width: 0;">
+                        <div class="title" style="font-size: 15px; font-weight: 800; color: #1a1a1a; margin-bottom: 2px;">${app.product_name || 'Изделие'}</div>
+                        <div class="subtitle" style="font-size: 10px; color: #8c8c8c;">${app.application_number} • ${dateStr}</div>
+                    </div>
+                    ${discCounterHtml}
                 </div>
             </div>
-            <div class="card-footer" style="padding: 4px 10px; border-top: 1px solid #f0f0f0;">
-                <div class="sla-indicator ${isUrgent ? 'sla-urgent' : 'sla-normal'}" style="font-size: 10px;">
+            <div class="card-body" style="padding: 10px 12px; display: flex; flex-direction: column; gap: 5px;">
+                <div class="detail-row" style="display: flex; align-items: baseline;">
+                    <span class="detail-label" style="font-style: italic; font-size: 12px; color: #777; flex: 0 0 90px;">Чертеж</span>
+                    <span class="detail-value" style="font-weight: 700; font-size: 13px; color: #111; flex: 1;">${app.drawing_number || '—'}</span>
+                </div>
+                <div class="detail-row" style="display: flex; align-items: baseline;">
+                    <span class="detail-label" style="font-style: italic; font-size: 12px; color: #777; flex: 0 0 90px;">Участок</span>
+                    <span class="detail-value" style="font-weight: 700; font-size: 13px; color: #111; flex: 1;">${app.lot_name || '—'}</span>
+                </div>
+                <div class="detail-row" style="display: flex; align-items: baseline;">
+                    <span class="detail-label" style="font-style: italic; font-size: 12px; color: #777; flex: 0 0 90px;">Серийник</span>
+                    <span class="detail-value" style="font-weight: 700; font-size: 13px; color: #111; flex: 1;">${app.serial_number || '—'}</span>
+                </div>
+                <div class="detail-row" style="display: flex; align-items: baseline;">
+                    <span class="detail-label" style="font-style: italic; font-size: 12px; color: #777; flex: 0 0 90px;">Мастер</span>
+                    <span class="detail-value" style="font-weight: 700; font-size: 13px; color: #111; flex: 1;">${app.master_name || '—'}</span>
+                </div>
+            </div>
+            <div class="card-footer" style="padding: 8px 12px; border-top: 1px solid #f0f0f0; display: flex; justify-content: space-between; align-items: center;">
+                <div class="sla-indicator ${isUrgent ? 'sla-urgent' : 'sla-normal'}" style="font-size: 11px; font-weight: 600;">
                     <span>🕒 До: ${timeStr}</span>
                 </div>
-                <div class="subtitle" style="font-size: 9px;">ID: ${app.id}</div>
+                <div style="display: flex; flex-direction: column; align-items: flex-end; gap: 4px;">
+                    <span class="status-badge ${statusClass}" style="font-size: 11px; font-weight: 800; padding: 4px 10px; border-radius: 4px;">${statusTranslations[app.status] || app.status.toUpperCase()}</span>
+                    <div class="subtitle" style="font-size: 9px; opacity: 0.6; font-weight: 600;">ID: ${app.id} ${app.btx_appl_id ? `| BTX: ${app.btx_appl_id}` : ''}</div>
+                </div>
             </div>
         `;
         return card;
@@ -61,7 +91,16 @@ const UI = {
         const isDisputed = disc.is_disputed;
         
         card.className = `task-card card-compact ${isUrgent ? 'urgent-task' : ''} ${isDisputed ? 'disputed-task' : ''}`;
+        card.style.margin = "8px 0"; 
         card.onclick = () => onClick(disc);
+
+        const statusTranslations = {
+            'new': 'НОВОЕ',
+            'assigned': 'НАЗНАЧЕНО',
+            'in_progress': 'В РАБОТЕ',
+            'resolved': 'УСТРАНЕНО',
+            'closed': 'ЗАКРЫТО'
+        };
 
         const statusClass = `bg-status-${disc.status}`;
         const severityIcons = {
@@ -71,42 +110,45 @@ const UI = {
             critical: '🔴'
         };
 
-        const disputeBadge = isDisputed ? '<span class="status-badge bg-status-rejected" style="margin-left:5px; font-size: 8px;">⚖️ ОСПОРЕНО</span>' : '';
+        const disputeBadge = isDisputed ? '<span class="status-badge bg-status-rejected" style="margin-left:5px; font-size: 9px; padding: 2px 4px;">⚖️ ОСПОРЕНО</span>' : '';
+        const detectedAt = new Date(disc.detected_at);
+        const dateStr = detectedAt.toLocaleDateString('ru-RU') + ' ' + detectedAt.toLocaleTimeString('ru-RU', { hour: '2-digit', minute: '2-digit' });
 
         card.innerHTML = `
-            <div class="card-header" style="padding: 6px 10px;">
+            <div class="card-header" style="padding: 8px 12px; border-bottom: 1px solid #f5f5f5;">
                 <div style="flex: 1; min-width: 0;">
-                    <div class="title" style="font-size: 13px; font-weight: 700; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                    <div class="title" style="font-size: 14px; font-weight: 800; color: #1a1a1a; margin-bottom: 2px;">
                         ${severityIcons[disc.severity] || ''} ${disc.title} ${disputeBadge}
                     </div>
-                    <div class="subtitle" style="font-size: 10px;">${disc.discrepancy_number} | <span style="font-weight: 600;">№: ${disc.application_number || 'Автономно'}</span></div>
+                    <div class="subtitle" style="font-size: 10px; color: #8c8c8c;">${disc.discrepancy_number} • ${dateStr}</div>
                 </div>
-                <span class="status-badge ${statusClass}" style="font-size: 9px; padding: 2px 6px;">${disc.status.toUpperCase()}</span>
             </div>
-            <div class="card-body" style="padding: 4px 10px; gap: 4px;">
-                <div class="detail-item" style="grid-column: span 2;">
-                    <span class="detail-label">Дефект</span>
-                    <span class="detail-value" style="font-size: 11px; line-height: 1.2;">${disc.description || 'Нет описания'}</span>
+            <div class="card-body" style="padding: 10px 12px; display: flex; flex-direction: column; gap: 5px;">
+                <div class="detail-row" style="display: flex; align-items: baseline;">
+                    <span class="detail-label" style="font-style: italic; font-size: 11px; color: #777; flex: 0 0 90px;">№ Заявки</span>
+                    <span class="detail-value" style="font-weight: 700; font-size: 12px; color: #111; flex: 1;">${disc.application_number || 'Автономно'}</span>
+                </div>
+                <div class="detail-row" style="display: flex; align-items: baseline;">
+                    <span class="detail-label" style="font-style: italic; font-size: 11px; color: #777; flex: 0 0 90px;">Выявил</span>
+                    <span class="detail-value" style="font-weight: 700; font-size: 12px; color: #111; flex: 1;">${disc.inspector_name || 'Система'}</span>
+                </div>
+                <div class="detail-row" style="display: flex; align-items: baseline;">
+                    <span class="detail-label" style="font-style: italic; font-size: 11px; color: #777; flex: 0 0 90px;">Срок</span>
+                    <span class="detail-value" style="font-weight: 700; font-size: 12px; color: #111; flex: 1;">${disc.due_date ? new Date(disc.due_date).toLocaleString('ru-RU', {day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit'}) : '—'}</span>
+                </div>
+                <div class="detail-row" style="display: flex; flex-direction: column; gap: 2px; margin-top: 2px;">
+                    <span class="detail-label" style="font-style: italic; font-size: 10px; color: #999;">Описание дефекта:</span>
+                    <span class="detail-value" style="font-size: 12px; line-height: 1.3; color: #444;">${disc.description || 'Нет описания'}</span>
                 </div>
                 ${isDisputed ? `
-                <div class="detail-item" style="grid-column: span 2; border: 1px dashed #ff4d4f; padding: 3px; border-radius: 4px; background: #fff1f0; margin-top: 2px;">
-                    <span class="detail-label" style="font-size: 9px;">Особое мнение:</span>
-                    <span class="detail-value" style="font-size: 10px; font-style: italic; color: #cf1322;">${disc.special_opinion || 'Не указано'}</span>
+                <div style="border: 1px dashed #ff4d4f; padding: 6px; border-radius: 6px; background: #fff1f0; margin-top: 4px;">
+                    <div style="font-size: 10px; font-weight: 700; color: #cf1322; margin-bottom: 2px;">Особое мнение мастера:</div>
+                    <div style="font-size: 11px; font-style: italic; color: #111;">${disc.special_opinion || 'Текст не указан'}</div>
                 </div>` : ''}
-                <div class="detail-item">
-                    <span class="detail-label">Выявил</span>
-                    <span class="detail-value">${disc.inspector_name || 'Система'}</span>
-                </div>
-                <div class="detail-item">
-                    <span class="detail-label">Срок</span>
-                    <span class="detail-value" style="font-weight: 600;">${disc.due_date ? new Date(disc.due_date).toLocaleString([], {day:'2-digit', month:'2-digit', hour:'2-digit', minute:'2-digit'}) : '—'}</span>
-                </div>
             </div>
-            <div class="card-footer" style="padding: 4px 10px; border-top: 1px solid #f0f0f0;">
-                <div class="sla-indicator ${isUrgent ? 'sla-urgent' : 'sla-normal'}" style="font-size: 10px;">
-                    <span>⚠️ ${new Date(disc.detected_at).toLocaleDateString()}</span>
-                </div>
-                <div class="subtitle" style="font-size: 9px;">#${disc.id}</div>
+            <div class="card-footer" style="padding: 8px 12px; border-top: 1px solid #f0f0f0; display: flex; justify-content: space-between; align-items: center;">
+                <div class="subtitle" style="font-size: 9px; opacity: 0.6; font-weight: 600;">ID: ${disc.id}</div>
+                <span class="status-badge ${statusClass}" style="font-size: 10px; font-weight: 800; padding: 3px 8px; border-radius: 4px;">${statusTranslations[disc.status] || disc.status.toUpperCase()}</span>
             </div>
         `;
         return card;

@@ -318,22 +318,26 @@ class App {
                 const appsRes = await window.TMA_API.getApplications({ master_id: user.id, status: 'new,assigned,in_progress' });
 
                 this.pageContent.innerHTML = `
-                    <div class="dashboard-grid">
-                        <div class="dashboard-card full-width">
-                            <h4>📑 Мои активные заявки</h4>
-                            <div class="task-grid" id="master-apps-grid"></div>
-                            ${appsRes.data.length > 6 ? '<button class="button-link" onclick="app.showPage(\'applications\')">Смотреть все заявки</button>' : ''}
-                        </div>
+                    <div class="task-grid" id="master-apps-grid" style="padding-top: 0;"></div>
+                    ${appsRes.data.length > 12 ? '<button class="button-link" onclick="app.showPage(\'applications\')" style="margin: 10px 5px;">Смотреть все заявки</button>' : ''}
+                    
+                    <div class="sticky-footer-action-dual">
+                        <button class="button button-secondary" onclick="app.openCreateDiscrepancyModal()">⚠️ Зафиксировать несоответствие</button>
+                        <button class="button" onclick="app.openCreateApplicationModal()">✨ Создать партию заявок</button>
                     </div>
                 `;
 
                 const appsGrid = document.getElementById('master-apps-grid');
                 if (appsRes.data.length > 0) {
-                    appsRes.data.slice(0, 6).forEach(app => {
+                    appsRes.data.forEach(app => {
                         appsGrid.appendChild(window.UI.createApplicationCard(app, (a) => this.viewApplication(a.id)));
                     });
+                    // Добавляем распорку для футера
+                    const spacer = document.createElement('div');
+                    spacer.className = 'spacer-footer-dual';
+                    appsGrid.appendChild(spacer);
                 } else {
-                    appsGrid.innerHTML = '<p class="subtitle">Активных заявок нет.</p>';
+                    appsGrid.innerHTML = '<p class="subtitle" style="padding: 20px;">Активных заявок нет.</p>';
                 }
 
             } else if (user.role === 'inspector') {
@@ -701,6 +705,8 @@ class App {
             const productId = actionButton.dataset.productId;
             const applicationId = actionButton.dataset.applicationId;
             const discrepancyId = actionButton.dataset.discrepancyId;
+
+            console.log('Action clicked:', action, { userId, lotId, productId, applicationId, discrepancyId });
 
             if (userId) {
                 if (action === 'edit') this.openEditUserModal(userId);

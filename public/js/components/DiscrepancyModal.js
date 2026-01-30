@@ -109,7 +109,7 @@ class DiscrepancyModal {
 
         if (this.editMode && discrepancyData) {
             this.title.textContent = `Несоответствие ${discrepancyData.discrepancy_number}`;
-            this.title.style.fontSize = user.role === 'master' ? '16px' : '18px'; // Уменьшаем для мастера
+            this.title.style.fontSize = user.role === 'master' ? '16px' : '18px';
 
             // Показываем инфо о заявке
             if (appInfoDiv && appNumberSpan) {
@@ -125,117 +125,45 @@ class DiscrepancyModal {
             this.form.elements.status.value = discrepancyData.status || 'new';
             this.form.elements.closure_scenario.value = discrepancyData.closure_scenario || '';
             
-            // Если мастер или админ - показываем его поля и кнопки
-            if (user.role === 'master' || user.role === 'admin') {
+            // Очищаем старые кнопки
+            if (actionsDiv) actionsDiv.innerHTML = '';
+
+            // --- ЛОГИКА ДЛЯ МАСТЕРА ---
+            if (user.role === 'master' && !window.AuthManager.isAdmin()) {
                 masterFields.style.display = 'block';
                 this.form.elements.fix_photo_url.value = discrepancyData.fix_photo_url || '';
                 this.form.elements.special_opinion.value = discrepancyData.special_opinion || '';
                 
-                // МАСТЕР НЕ МОЖЕТ МЕНЯТЬ ПОЛЯ КОНТРОЛЕРА, но может Срок
-                if (user.role === 'master' && !window.AuthManager.isAdmin()) {
-                    inputs.forEach(input => {
-                        if (!['fix_photo_url', 'special_opinion', 'due_date'].includes(input.name)) {
-                            input.disabled = true;
-                        } else {
-                            input.disabled = false;
-                        }
-                    });
-                    submitButton.style.display = 'none'; 
-                    // Скрываем поле ответственного для мастера, как просили
-                    const respGroup = this.responsibleSelect.closest('.form-group');
-                    if (respGroup) respGroup.style.display = 'none';
-                } else {
-                    inputs.forEach(input => input.disabled = false);
-                    submitButton.style.display = 'block';
-                    const respGroup = this.responsibleSelect.closest('.form-group');
-                    if (respGroup) respGroup.style.display = 'block';
-                }
-
-                if (actionsDiv) {
-                    actionsDiv.innerHTML = '';
-                    console.log('Rendering master actions for status:', discrepancyData.status);
-                    
-                    // Кнопки для Мастера/Админа в активных статусах
-                    if (['new', 'assigned', 'in_progress', 'resolved'].includes(discrepancyData.status)) {
-                        const btnContainer = document.createElement('div');
-                        btnContainer.className = 'master-actions-container';
-                        btnContainer.style.display = 'flex';
-                        btnContainer.style.flexDirection = 'column';
-                        btnContainer.style.gap = '10px';
-
-                        // Основная кнопка "Устранено" (если еще не устранено)
-                        if (discrepancyData.status !== 'resolved') {
-                            const resolvedBtn = document.createElement('button');
-                            resolvedBtn.type = 'button';
-                            resolvedBtn.className = 'button button-success';
-                            resolvedBtn.textContent = '🛠️ Устранено';
-                            resolvedBtn.onclick = () => this.handleMasterAction('resolved');
-                            btnContainer.appendChild(resolvedBtn);
-                        }
-
-                        // Кнопка "Оспорить" - теперь открывает выбор вариантов
-                        const disputeBtn = document.createElement('button');
-                        disputeBtn.type = 'button';
-                        disputeBtn.className = 'button button-danger';
-                        disputeBtn.id = 'main-dispute-btn';
-                        disputeBtn.textContent = '⚖️ Оспорить';
-                        disputeBtn.onclick = () => this.showDisputeOptions();
-                        btnContainer.appendChild(disputeBtn);
-
-                        // Контейнер для вариантов оспаривания (скрыт по умолчанию)
-                        const disputeOptions = document.createElement('div');
-                        disputeOptions.id = 'dispute-options-container';
-                        disputeOptions.style.display = 'none';
-                        disputeOptions.style.flexDirection = 'column';
-                        disputeOptions.style.gap = '8px';
-                        disputeOptions.style.padding = '10px';
-                        disputeOptions.style.background = '#fff5f5';
-                        disputeOptions.style.borderRadius = '8px';
-                        disputeOptions.style.border = '1px solid #feb2b2';
-
-                        const optTitle = document.createElement('div');
-                        optTitle.textContent = 'Выберите причину спора:';
-                        optTitle.style.fontSize = '12px';
-                        optTitle.style.fontWeight = 'bold';
-                        optTitle.style.color = '#c53030';
-                        disputeOptions.appendChild(optTitle);
-
-                        const otherRespBtn = document.createElement('button');
-                        otherRespBtn.type = 'button';
-                        otherRespBtn.className = 'button button-small';
-                        otherRespBtn.style.background = '#e53e3e';
-                        otherRespBtn.textContent = '👥 Ответственен другой';
-                        otherRespBtn.onclick = () => this.handleMasterAction('dispute_other');
-                        disputeOptions.appendChild(otherRespBtn);
-
-                        const krRequiredBtn = document.createElement('button');
-                        krRequiredBtn.type = 'button';
-                        krRequiredBtn.className = 'button button-small';
-                        krRequiredBtn.style.background = '#805ad5';
-                        krRequiredBtn.textContent = '📜 Требуется КР';
-                        krRequiredBtn.onclick = () => this.handleMasterAction('dispute_kr');
-                        disputeOptions.appendChild(krRequiredBtn);
-
-                        const cancelDisputeBtn = document.createElement('button');
-                        cancelDisputeBtn.type = 'button';
-                        cancelDisputeBtn.className = 'button button-link';
-                        cancelDisputeBtn.textContent = 'Отмена';
-                        cancelDisputeBtn.onclick = () => this.hideDisputeOptions();
-                        disputeOptions.appendChild(cancelDisputeBtn);
-
-                        btnContainer.appendChild(disputeOptions);
-                        
-                        const saveChangesBtn = document.createElement('button');
-                        saveChangesBtn.type = 'button';
-                        saveChangesBtn.className = 'button button-secondary';
-                        saveChangesBtn.textContent = '💾 Сохранить (Срок)';
-                        saveChangesBtn.onclick = () => this.handleSubmit(new Event('submit'));
-                        btnContainer.appendChild(saveChangesBtn);
-
-                        actionsDiv.appendChild(btnContainer);
+                inputs.forEach(input => {
+                    if (!['fix_photo_url', 'special_opinion', 'due_date'].includes(input.name)) {
+                        input.disabled = true;
                     }
+                });
+                submitButton.style.display = 'none';
+
+                if (['new', 'assigned', 'in_progress', 'resolved'].includes(discrepancyData.status)) {
+                    this.renderMasterButtons(actionsDiv, discrepancyData);
+                }
+            } 
+            // --- ЛОГИКА ДЛЯ КОНТРОЛЕРА / АДМИНА ---
+            else if (user.role === 'inspector' || user.role === 'admin' || user.role === 'director') {
+                masterFields.style.display = 'block'; // Чтобы видеть, что написал мастер
+                this.form.elements.fix_photo_url.value = discrepancyData.fix_photo_url || '';
+                this.form.elements.special_opinion.value = discrepancyData.special_opinion || '';
+                
+                // Блокируем поля мастера для контролера
+                const masterSpecificInputs = ['fix_photo_url', 'special_opinion'];
+                inputs.forEach(input => {
+                    input.disabled = masterSpecificInputs.includes(input.name);
+                });
+
+                if (actionsDiv && discrepancyData.status !== 'closed') {
+                    this.renderInspectorButtons(actionsDiv, discrepancyData);
                 }
             }
+
+            this.handleStatusChange();
+            this.handleScenarioChange();
 // ... rest of code ...
 
             this.handleStatusChange();
@@ -270,6 +198,157 @@ class DiscrepancyModal {
         }
 
         this.modal.style.display = 'block';
+    }
+
+    // --- НОВЫЕ МЕТОДЫ ДЛЯ РЕНДЕРИНГА КНОПОК ---
+
+    renderMasterButtons(container, data) {
+        const btnContainer = document.createElement('div');
+        btnContainer.className = 'master-actions-container';
+        btnContainer.style.display = 'flex';
+        btnContainer.style.flexDirection = 'column';
+        btnContainer.style.gap = '10px';
+
+        if (data.status !== 'resolved') {
+            const resolvedBtn = document.createElement('button');
+            resolvedBtn.type = 'button';
+            resolvedBtn.className = 'button button-success';
+            resolvedBtn.textContent = '🛠️ Устранено';
+            resolvedBtn.onclick = () => this.handleMasterAction('resolved');
+            btnContainer.appendChild(resolvedBtn);
+        }
+
+        const disputeBtn = document.createElement('button');
+        disputeBtn.type = 'button';
+        disputeBtn.className = 'button button-danger';
+        disputeBtn.id = 'main-dispute-btn';
+        disputeBtn.textContent = '⚖️ Оспорить';
+        disputeBtn.onclick = () => this.showDisputeOptions();
+        btnContainer.appendChild(disputeBtn);
+
+        const disputeOptions = this.createDisputeOptions();
+        btnContainer.appendChild(disputeOptions);
+        
+        const saveChangesBtn = document.createElement('button');
+        saveChangesBtn.type = 'button';
+        saveChangesBtn.className = 'button button-secondary';
+        saveChangesBtn.textContent = '💾 Сохранить (Срок)';
+        saveChangesBtn.onclick = () => this.handleSubmit(new Event('submit'));
+        btnContainer.appendChild(saveChangesBtn);
+
+        container.appendChild(btnContainer);
+    }
+
+    renderInspectorButtons(container, data) {
+        const btnContainer = document.createElement('div');
+        btnContainer.style.display = 'flex';
+        btnContainer.style.flexDirection = 'column';
+        btnContainer.style.gap = '10px';
+        btnContainer.style.marginTop = '15px';
+        btnContainer.style.borderTop = '2px solid #eee';
+        btnContainer.style.paddingTop = '15px';
+
+        const title = document.createElement('div');
+        title.textContent = 'Управление контролером:';
+        title.style.fontWeight = 'bold';
+        title.style.marginBottom = '5px';
+        btnContainer.appendChild(title);
+
+        // Кнопка ПРИНЯТЬ (Закрыть)
+        const closeBtn = document.createElement('button');
+        closeBtn.type = 'button';
+        closeBtn.className = 'button button-success';
+        closeBtn.style.padding = '12px';
+        closeBtn.textContent = data.status === 'resolved' ? '✅ Принять устранение (Закрыть)' : '✅ Закрыть несоответствие';
+        closeBtn.onclick = () => this.handleInspectorResolution('closed');
+        btnContainer.appendChild(closeBtn);
+
+        // Кнопка НА ДОРАБОТКУ (только если мастер что-то сделал)
+        if (data.status === 'resolved' || data.is_disputed) {
+            const rejectBtn = document.createElement('button');
+            rejectBtn.type = 'button';
+            rejectBtn.className = 'button button-danger';
+            rejectBtn.textContent = '🔄 На доработку (Не принято)';
+            rejectBtn.onclick = () => this.handleInspectorResolution('in_progress');
+            btnContainer.appendChild(rejectBtn);
+        }
+
+        container.appendChild(btnContainer);
+    }
+
+    createDisputeOptions() {
+        const disputeOptions = document.createElement('div');
+        disputeOptions.id = 'dispute-options-container';
+        disputeOptions.style.display = 'none';
+        disputeOptions.style.flexDirection = 'column';
+        disputeOptions.style.gap = '8px';
+        disputeOptions.style.padding = '10px';
+        disputeOptions.style.background = '#fff5f5';
+        disputeOptions.style.borderRadius = '8px';
+        disputeOptions.style.border = '1px solid #feb2b2';
+
+        const optTitle = document.createElement('div');
+        optTitle.textContent = 'Выберите причину спора:';
+        optTitle.style.fontSize = '12px';
+        optTitle.style.fontWeight = 'bold';
+        optTitle.style.color = '#c53030';
+        disputeOptions.appendChild(optTitle);
+
+        const otherRespBtn = document.createElement('button');
+        otherRespBtn.type = 'button';
+        otherRespBtn.className = 'button button-small';
+        otherRespBtn.style.background = '#e53e3e';
+        otherRespBtn.textContent = '👥 Ответственен другой';
+        otherRespBtn.onclick = () => this.handleMasterAction('dispute_other');
+        disputeOptions.appendChild(otherRespBtn);
+
+        const krRequiredBtn = document.createElement('button');
+        krRequiredBtn.type = 'button';
+        krRequiredBtn.className = 'button button-small';
+        krRequiredBtn.style.background = '#805ad5';
+        krRequiredBtn.textContent = '📜 Требуется КР';
+        krRequiredBtn.onclick = () => this.handleMasterAction('dispute_kr');
+        disputeOptions.appendChild(krRequiredBtn);
+
+        const cancelDisputeBtn = document.createElement('button');
+        cancelDisputeBtn.type = 'button';
+        cancelDisputeBtn.className = 'button button-link';
+        cancelDisputeBtn.textContent = 'Отмена';
+        cancelDisputeBtn.onclick = () => this.hideDisputeOptions();
+        disputeOptions.appendChild(cancelDisputeBtn);
+
+        return disputeOptions;
+    }
+
+    async handleInspectorResolution(newStatus) {
+        const id = this.form.elements.id.value;
+        const scenario = this.scenarioSelect.value;
+        const details = this.form.elements.details ? this.form.elements.details.value : '';
+
+        if (newStatus === 'closed' && !scenario) {
+            alert('Пожалуйста, выберите сценарий закрытия (как решена проблема).');
+            this.statusSelect.value = 'closed';
+            this.handleStatusChange();
+            return;
+        }
+
+        const payload = {
+            id: parseInt(id),
+            status: newStatus,
+            closure_scenario: scenario || null,
+            metadata: details ? JSON.stringify({ details }) : null,
+            is_disputed: newStatus === 'in_progress' ? false : undefined // Снимаем флаг спора, если вернули в работу
+        };
+
+        try {
+            const response = await window.TMA_API.updateDiscrepancyStatus(id, payload);
+            if (response.success) {
+                this.hide();
+                if (this.onSave) await this.onSave(response.data);
+            }
+        } catch (error) {
+            alert(error.message);
+        }
     }
 
     showDisputeOptions() {

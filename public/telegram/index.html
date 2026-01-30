@@ -63,40 +63,42 @@
         <div id="user-modal" class="modal">
             <div class="modal-content">
                 <span class="close">&times;</span>
-                <h2 class="modal-title">Создать пользователя</h2>
+                <h2 class="modal-title" style="font-size: 18px; margin-bottom: 15px;">Создать пользователя</h2>
                 <form id="user-form">
                     <input type="hidden" name="id">
-                    <div class="form-group">
-                        <label for="user-first-name">Имя:</label>
-                        <input type="text" id="user-first-name" name="first_name">
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label for="user-first-name">Имя:</label>
+                            <input type="text" id="user-first-name" name="first_name" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="user-last-name">Фамилия:</label>
+                            <input type="text" id="user-last-name" name="last_name" required>
+                        </div>
+                        <div class="form-group">
+                            <label for="user-role">Роль:</label>
+                            <select id="user-role" name="role" required>
+                                <option value="admin">Администратор</option>
+                                <option value="director">Директор</option>
+                                <option value="inspector">Контролер ОТК</option>
+                                <option value="master">Мастер</option>
+                                <option value="worker">Рабочий</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="user-telegram-id">Telegram ID:</label>
+                            <input type="number" id="user-telegram-id" name="telegram_id">
+                        </div>
+                        <div class="form-group">
+                            <label for="user-bitrix-id">Bitrix ID:</label>
+                            <input type="number" id="user-bitrix-id" name="bitrix_id">
+                        </div>
                     </div>
-                    <div class="form-group">
-                        <label for="user-last-name">Фамилия:</label>
-                        <input type="text" id="user-last-name" name="last_name">
-                    </div>
-                    <div class="form-group">
-                        <label for="user-telegram-id">Telegram ID:</label>
-                        <input type="number" id="user-telegram-id" name="telegram_id">
-                    </div>
-                    <div class="form-group">
-                        <label for="user-bitrix-id">Bitrix ID:</label>
-                        <input type="number" id="user-bitrix-id" name="bitrix_id">
-                    </div>
-                    <div class="form-group">
-                        <label for="user-role">Роль:</label>
-                        <select id="user-role" name="role" required>
-                            <option value="admin">Администратор</option>
-                            <option value="director">Директор</option>
-                            <option value="inspector">Контролер ОТК</option>
-                            <option value="master">Мастер</option>
-                            <option value="worker">Рабочий</option>
-                        </select>
-                    </div>
-                    <div class="form-group" id="user-password-group">
+                    <div class="form-group" id="user-password-group" style="margin-top: 10px;">
                         <label for="user-pin-code">Пароль (PIN):</label>
-                        <input type="text" id="user-pin-code" name="pin_code" placeholder="Оставьте пустым для автогенерации">
+                        <input type="text" id="user-pin-code" name="pin_code" placeholder="4 цифры или пусто для авто" maxlength="4" pattern="\d{4}" inputmode="numeric">
                     </div>
-                    <button type="submit" class="button">Сохранить</button>
+                    <button type="submit" class="button" style="margin-top: 15px;">Сохранить</button>
                 </form>
             </div>
         </div>
@@ -105,16 +107,22 @@
         <div id="lot-modal" class="modal">
             <div class="modal-content">
                 <span class="close">&times;</span>
-                <h2 class="modal-title">Создать участок</h2>
+                <h2 class="modal-title" style="font-size: 18px; margin-bottom: 15px;">Создать участок</h2>
                 <form id="lot-form">
                     <input type="hidden" name="id">
                     <div class="form-group">
-                        <label for="lot-name">Название:</label>
-                        <input type="text" id="lot-name" name="name" required>
+                        <label for="lot-name">Название участка:</label>
+                        <input type="text" id="lot-name" name="name" required placeholder="Например: Цех сборки">
                     </div>
-                    <div class="form-group">
-                        <label for="lot-code">Код участка:</label>
-                        <input type="text" id="lot-code" name="code" required>
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label for="lot-code">Код участка:</label>
+                            <input type="text" id="lot-code" name="code" required placeholder="LOT-01">
+                        </div>
+                        <div class="form-group">
+                            <label for="lot-distance">Расстояние (м):</label>
+                            <input type="number" id="lot-distance" name="distance_to_office">
+                        </div>
                     </div>
                     <div class="form-group">
                         <label for="lot-main-master-id">Основной мастер:</label>
@@ -123,16 +131,12 @@
                         </select>
                     </div>
                     <div class="form-group">
-                        <label for="lot-temp-master-id">Замещающий мастер:</label>
+                        <label for="lot-temp-master-id">Замещающий мастер (если есть):</label>
                         <select id="lot-temp-master-id" name="temp_master_id">
                             <!-- Опции мастеров будут загружены динамически -->
                         </select>
                     </div>
-                     <div class="form-group">
-                        <label for="lot-distance">Расстояние до офиса (м):</label>
-                        <input type="number" id="lot-distance" name="distance_to_office">
-                    </div>
-                    <button type="submit" class="button">Сохранить</button>
+                    <button type="submit" class="button" style="margin-top: 15px;">Сохранить</button>
                 </form>
             </div>
         </div>
@@ -141,58 +145,48 @@
         <div id="product-modal" class="modal">
             <div class="modal-content">
                 <span class="close">&times;</span>
-                <h2 class="modal-title">Создать изделие</h2>
+                <h2 class="modal-title" style="font-size: 18px; margin-bottom: 15px;">Создать изделие</h2>
                 <form id="product-form">
                     <input type="hidden" name="id">
                     <div class="form-group">
-                        <label for="product-name">Название:</label>
-                        <input type="text" id="product-name" name="name" required>
+                        <label for="product-name">Название изделия:</label>
+                        <input type="text" id="product-name" name="name" required placeholder="Трансформатор ТСЛ-1000">
+                    </div>
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label for="product-type">Тип:</label>
+                            <select id="product-type" name="type" required>
+                                <option value="finished">Готовое изделие</option>
+                                <option value="semi_finished">Полуфабрикат</option>
+                                <option value="assembly">Сборочная единица</option>
+                                <option value="part">Деталь</option>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label for="product-lot-id">Участок пр-ва:</label>
+                            <select id="product-lot-id" name="lot_id" required>
+                                <!-- Опции участков будут загружены динамически -->
+                            </select>
+                        </div>
                     </div>
                     <div class="form-group">
-                        <label for="product-type">Тип:</label>
-                        <select id="product-type" name="type" required>
-                            <option value="finished">Готовое изделие</option>
-                            <option value="semi_finished">Полуфабрикат</option>
-                            <option value="assembly">Сборочная единица</option>
-                            <option value="part">Деталь</option>
-                        </select>
-                    </div>
-                    <div class="form-group">
-                        <label for="product-lot-id">Участок:</label>
-                        <select id="product-lot-id" name="lot_id">
-                            <!-- Опции участков будут загружены динамически -->
-                        </select>
-                    </div>
-                    <div class="form-group">
-                        <label for="product-previous-lot-id">Предыдущий участок:</label>
-                        <select id="product-previous-lot-id" name="previous_lot_id">
-                            <!-- Опции участков будут загружены динамически -->
-                        </select>
-                    </div>
-                    <div class="form-group">
-                        <label for="product-next-lot-id">Следующий участок:</label>
-                        <select id="product-next-lot-id" name="next_lot_id">
-                            <!-- Опции участков будут загружены динамически -->
-                        </select>
-                    </div>
-                    <div class="form-group">
-                        <label for="product-default-inspector-id">Контролёр по умолчанию:</label>
+                        <label for="product-default-inspector-id">Контролёр ОТК (по умолчанию):</label>
                         <select id="product-default-inspector-id" name="default_inspector_id">
                             <!-- Опции контролёров будут загружены динамически -->
                         </select>
                     </div>
                     <div class="form-group">
-                        <label for="product-inspection-time">Время на приёмку (мин):</label>
+                        <label for="product-inspection-time">Норма времени на приёмку (мин):</label>
                         <input type="number" id="product-inspection-time" name="inspection_time_minutes" min="1" placeholder="30">
                     </div>
-                     <div class="form-group">
-                        <label>Чек-лист:</label>
-                        <div id="product-checklist-container" class="checklist-container">
+                    <div class="form-group">
+                        <label style="font-weight: 700; display: block; margin-bottom: 8px;">📋 Чек-лист проверки:</label>
+                        <div id="product-checklist-container" class="checklist-container" style="background: #f8f9fa; padding: 10px; border-radius: 8px; border: 1px solid #eee;">
                             <!-- Элементы чек-листа будут добавлены сюда -->
                         </div>
-                        <button type="button" id="add-checklist-item-btn" class="button button-secondary">Добавить пункт</button>
+                        <button type="button" id="add-checklist-item-btn" class="button button-secondary" style="margin-top: 10px; font-size: 13px;">➕ Добавить пункт чек-листа</button>
                     </div>
-                    <button type="submit" class="button">Сохранить</button>
+                    <button type="submit" class="button" style="margin-top: 15px;">Сохранить изделие</button>
                 </form>
             </div>
         </div>
@@ -201,17 +195,9 @@
         <div id="application-modal" class="modal">
             <div class="modal-content large">
                 <span class="close">&times;</span>
-                <h2 class="modal-title">Создать партию заявок</h2>
+                <h2 class="modal-title" style="font-size: 18px; margin-bottom: 15px;">Создать партию заявок</h2>
                 <form id="application-form">
                     <div class="form-grid">
-                        <div class="form-group">
-                            <label for="app-product-id">Изделие:</label>
-                            <select id="app-product-id" name="product_id" required></select>
-                        </div>
-                        <div class="form-group">
-                            <label for="app-drawing-number">Номер чертежа:</label>
-                            <input type="text" id="app-drawing-number" name="drawing_number" placeholder="ТМА.12345.001">
-                        </div>
                         <div class="form-group">
                             <label for="app-lot-id">Участок:</label>
                             <select id="app-lot-id" name="lot_id" required></select>
@@ -221,8 +207,12 @@
                             <select id="app-master-id" name="master_id" required></select>
                         </div>
                         <div class="form-group">
-                            <label for="app-desired-time">Желаемый срок приёмки:</label>
-                            <input type="datetime-local" id="app-desired-time" name="desired_inspection_time" required>
+                            <label for="app-product-id">Изделие:</label>
+                            <select id="app-product-id" name="product_id" required></select>
+                        </div>
+                        <div class="form-group">
+                            <label for="app-drawing-number">Номер чертежа:</label>
+                            <input type="text" id="app-drawing-number" name="drawing_number" placeholder="ТМА.12345.001">
                         </div>
                         <div class="form-group">
                             <label for="app-quantity">Количество (шт):</label>
@@ -230,26 +220,26 @@
                         </div>
                     </div>
 
-                    <div class="form-group">
-                        <label for="app-mki-photo">Фото МКИ (URL или заглушка):</label>
-                        <input type="text" id="app-mki-photo" name="mki_photo_url" placeholder="https://example.com/photo.jpg">
+                    <div id="app-serials-container" class="serials-grid">
+                        <!-- Сюда будут динамически добавляться поля для серийных номеров -->
+                    </div>
+
+                    <div class="form-group-horizontal" style="margin: 15px 0 10px 0;">
+                        <input type="checkbox" id="app-has-serials" name="has_serial_numbers" checked>
+                        <label for="app-has-serials" style="font-weight: 700;">Указать серийные номера</label>
                     </div>
 
                     <div class="form-group">
                         <label for="app-notes">Общие заметки для партии:</label>
-                        <textarea id="app-notes" name="notes" rows="2"></textarea>
+                        <textarea id="app-notes" name="notes" rows="2" placeholder="Например: Срочная отгрузка"></textarea>
                     </div>
 
-                    <div class="form-group-horizontal">
-                        <input type="checkbox" id="app-has-serials" name="has_serial_numbers" checked>
-                        <label for="app-has-serials">Указать серийные номера</label>
-                    </div>
-
-                    <div id="app-serials-container" class="serials-grid">
-                        <!-- Сюда будут динамически добавляться поля для серийных номеров -->
+                    <div class="form-group" style="margin-top: 10px;">
+                        <label for="app-desired-time">Желаемый срок приёмки:</label>
+                        <input type="datetime-local" id="app-desired-time" name="desired_inspection_time" required>
                     </div>
                     
-                    <button type="submit" class="button">Создать заявки</button>
+                    <button type="submit" class="button" style="margin-top: 10px;">Создать заявки</button>
                 </form>
             </div>
         </div>

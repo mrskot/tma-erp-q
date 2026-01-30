@@ -8,7 +8,10 @@ class Application {
         'p.name as product_name',
         'l.name as lot_name',
         db.raw("master.first_name || ' ' || master.last_name as master_name"),
-        db.raw("inspector.first_name || ' ' || inspector.last_name as inspector_name")
+        db.raw("inspector.first_name || ' ' || inspector.last_name as inspector_name"),
+        // Агрегация счетчиков несоответствий
+        db.raw('(SELECT COUNT(*) FROM discrepancies WHERE application_id = a.id) as total_discrepancies'),
+        db.raw("(SELECT COUNT(*) FROM discrepancies WHERE application_id = a.id AND status IN ('resolved', 'closed')) as closed_discrepancies")
       )
       .leftJoin('products as p', 'a.product_id', 'p.id')
       .leftJoin('lots as l', 'a.lot_id', 'l.id')
@@ -25,7 +28,10 @@ class Application {
         'p.name as product_name',
         'l.name as lot_name',
         db.raw("master.first_name || ' ' || master.last_name as master_name"),
-        db.raw("inspector.first_name || ' ' || inspector.last_name as inspector_name")
+        db.raw("inspector.first_name || ' ' || inspector.last_name as inspector_name"),
+        // Агрегация счетчиков несоответствий
+        db.raw('(SELECT COUNT(*) FROM discrepancies WHERE application_id = a.id) as total_discrepancies'),
+        db.raw("(SELECT COUNT(*) FROM discrepancies WHERE application_id = a.id AND status IN ('resolved', 'closed')) as closed_discrepancies")
       )
       .leftJoin('products as p', 'a.product_id', 'p.id')
       .leftJoin('lots as l', 'a.lot_id', 'l.id')

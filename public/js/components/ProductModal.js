@@ -1,14 +1,16 @@
 class ProductModal {
     constructor() {
         this.modal = document.getElementById('product-modal');
+        if (!this.modal) {
+            console.error('ProductModal HTML not found');
+            return;
+        }
         this.form = document.getElementById('product-form');
         this.title = this.modal.querySelector('.modal-title');
         this.closeButton = this.modal.querySelector('.close');
 
         // Новые поля
         this.lotSelect = document.getElementById('product-lot-id');
-        this.previousLotSelect = document.getElementById('product-previous-lot-id');
-        this.nextLotSelect = document.getElementById('product-next-lot-id');
         this.inspectorSelect = document.getElementById('product-default-inspector-id');
         this.inspectionTimeInput = document.getElementById('product-inspection-time');
         
@@ -28,22 +30,17 @@ class ProductModal {
     // --- Методы для заполнения выпадающих списков ---
     
     populateLots(lots = []) {
-        const populate = (selectElement) => {
-            const currentValue = selectElement.value;
-            selectElement.innerHTML = '<option value="">Не указан</option>';
-            lots.forEach(lot => {
-                if (lot.is_active) {
-                    const option = document.createElement('option');
-                    option.value = lot.id;
-                    option.textContent = `${lot.name} (${lot.code})`;
-                    selectElement.appendChild(option);
-                }
-            });
-            selectElement.value = currentValue;
-        };
-        populate(this.lotSelect);
-        populate(this.previousLotSelect);
-        populate(this.nextLotSelect);
+        const currentValue = this.lotSelect.value;
+        this.lotSelect.innerHTML = '<option value="">Выберите участок</option>';
+        lots.forEach(lot => {
+            if (lot.is_active) {
+                const option = document.createElement('option');
+                option.value = lot.id;
+                option.textContent = `${lot.name} (${lot.code})`;
+                this.lotSelect.appendChild(option);
+            }
+        });
+        this.lotSelect.value = currentValue;
     }
 
     populateInspectors(inspectors = []) {
@@ -133,8 +130,6 @@ class ProductModal {
             this.lotSelect.value = productData.lot_id || '';
             
             // Заполнение новых полей
-            this.previousLotSelect.value = productData.previous_lot_id || '';
-            this.nextLotSelect.value = productData.next_lot_id || '';
             this.inspectorSelect.value = productData.default_inspector_id || '';
             this.inspectionTimeInput.value = productData.inspection_time_minutes || '';
 
@@ -163,8 +158,6 @@ class ProductModal {
             name: this.form.elements.name.value.trim(),
             product_type: this.form.elements.type.value,
             lot_id: this.lotSelect.value ? parseInt(this.lotSelect.value) : null,
-            previous_lot_id: this.previousLotSelect.value ? parseInt(this.previousLotSelect.value) : null,
-            next_lot_id: this.nextLotSelect.value ? parseInt(this.nextLotSelect.value) : null,
             default_inspector_id: this.inspectorSelect.value ? parseInt(this.inspectorSelect.value) : null,
             inspection_time_minutes: this.inspectionTimeInput.value ? parseInt(this.inspectionTimeInput.value) : null,
             checklist: this.getChecklistFromDOM()

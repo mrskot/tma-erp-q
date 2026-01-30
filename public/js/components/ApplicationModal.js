@@ -98,9 +98,9 @@ class ApplicationModal {
             row.style.paddingBottom = '10px';
             
             row.innerHTML = `
-                <div style="font-size: 12px; color: #666; margin-bottom: 5px;">Экземпляр #${i + 1}</div>
-                <input type="text" class="serial-number-input" placeholder="Серийный номер" required style="margin-bottom: 5px;">
-                <input type="text" class="serial-photo-input" placeholder="URL фото МКИ для этого серийника" style="font-size: 12px;">
+                <div style="font-size: 12px; color: #666; margin-bottom: 5px; font-weight: 700;">Экземпляр #${i + 1}</div>
+                <input type="text" class="serial-number-input" placeholder="Серийный номер" required style="margin-bottom: 8px; padding: 10px; font-size: 14px;">
+                <input type="text" class="serial-photo-input" placeholder="URL фото МКИ для этого серийника" style="font-size: 13px; padding: 10px;">
             `;
             fragment.appendChild(row);
         }
