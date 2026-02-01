@@ -12,6 +12,7 @@ class ApplicationDetailsModal {
         // Поля данных
         this.fields = {
             number: document.getElementById('view-app-number'),
+            order: document.getElementById('view-app-order'),
             product: document.getElementById('view-app-product'),
             drawing: document.getElementById('view-app-drawing'),
             serial: document.getElementById('view-app-serial'),
@@ -23,6 +24,9 @@ class ApplicationDetailsModal {
         this.mkiSection = document.getElementById('view-app-mki-section');
         this.mkiImg = document.getElementById('view-app-mki-img');
         this.discList = document.getElementById('view-app-discrepancies-list');
+        
+        this.checklistSection = document.getElementById('view-app-checklist-section');
+        this.checklistItems = document.getElementById('view-app-checklist-items');
         
         this.currentApp = null;
         this.attachEventListeners();
@@ -45,14 +49,27 @@ class ApplicationDetailsModal {
             
             // Заполняем поля
             this.fields.number.textContent = app.application_number;
+            this.fields.order.textContent = app.production_order_number || '—';
             this.fields.product.textContent = app.product_name;
             this.fields.drawing.textContent = app.drawing_number || '—';
             this.fields.serial.textContent = app.serial_number || '—';
             this.fields.master.textContent = app.master_name;
             this.fields.lot.textContent = app.lot_name;
-            this.fields.status.textContent = app.status.toUpperCase();
+
+            const statusTranslations = {
+                new: 'Новая',
+                assigned: 'Назначена',
+                in_progress: 'В работе',
+                accepted: 'Принято',
+                rejected: 'Отклонено'
+            };
+            
+            this.fields.status.textContent = statusTranslations[app.status] || app.status.toUpperCase();
             this.fields.status.className = `status-badge bg-status-${app.status}`;
             
+            // Рендерим Чек-лист
+            this.renderChecklist(app);
+
             // Фото МКИ
             if (app.mki_photo_url) {
                 this.mkiImg.src = app.mki_photo_url;
@@ -90,6 +107,70 @@ class ApplicationDetailsModal {
         }
     }
 
+    renderChecklist(app) {
+        this.checklistItems.innerHTML = '';
+        this.checklistSection.style.display = 'none';
+
+        const user = window.AuthManager.getUser();
+        const isInspector = user.role === 'inspector' || user.role === 'admin';
+
+        // Используем чек-лист из изделия, который теперь приходит вместе с заявкой
+        const rawChecklist = app.product_checklist || app.checklist;
+        if (!rawChecklist) return;
+
+        let checklist = [];
+        try {
+            checklist = typeof rawChecklist === 'string' ? JSON.parse(rawChecklist) : rawChecklist;
+        } catch (e) {
+            console.error('Checklist parse error:', e);
+            return;
+        }
+
+        if (!Array.isArray(checklist) || checklist.length === 0) return;
+
+        this.checklistSection.style.display = 'block';
+        
+        // Меняем заголовок в зависимости от роли
+        const titleEl = this.checklistSection.querySelector('div');
+        if (titleEl) {
+            titleEl.textContent = isInspector ? '📋 Чек-лист контроля:' : '📋 Список необходимых проверок:';
+        }
+
+        checklist.forEach((item, index) => {
+            const div = document.createElement('div');
+            div.style.display = 'flex';
+            div.style.alignItems = 'flex-start';
+            div.style.gap = '10px';
+            div.style.marginBottom = '8px';
+            div.style.padding = '4px 0';
+            div.style.borderBottom = '1px dashed #eee';
+            
+            // НОРМАЛИЗАЦИЯ ТЕКСТА: обрабатываем и строки, и объекты {"task": "..."}
+            let itemText = item;
+            if (typeof item === 'object' && item !== null) {
+                itemText = item.task || item.text || item.title || JSON.stringify(item);
+            }
+            
+            // Если заявка принята или отклонена, чекбоксы заблокированы
+            const isDisabled = ['accepted', 'rejected'].includes(app.status);
+            
+            if (isInspector) {
+                // Для ИНСПЕКТОРА - интерактивные чекбоксы
+                div.innerHTML = `
+                    <input type="checkbox" id="check-${index}" style="margin-top: 3px;" ${isDisabled ? 'disabled checked' : ''}>
+                    <label for="check-${index}" style="font-size: 13px; line-height: 1.4; color: #333;">${itemText}</label>
+                `;
+            } else {
+                // Для МАСТЕРА - просто список с маркером (без галочек)
+                div.innerHTML = `
+                    <span style="color: #667eea; margin-top: 2px;">🔹</span>
+                    <span style="font-size: 13px; line-height: 1.4; color: #333;">${itemText}</span>
+                `;
+            }
+            this.checklistItems.appendChild(div);
+        });
+    }
+
     renderActions(app) {
         this.actionsContainer.innerHTML = '';
         const user = window.AuthManager.getUser();
@@ -110,7 +191,17 @@ class ApplicationDetailsModal {
                 const acceptBtn = document.createElement('button');
                 acceptBtn.className = 'button button-success';
                 acceptBtn.textContent = '✅ Принять (Годен)';
-                acceptBtn.onclick = () => this.handleStatusChange('accepted');
+                acceptBtn.onclick = () => {
+                    // ВАЛИДАЦИЯ: Проверяем, что все пункты чек-листа отмечены
+                    const checkboxes = this.checklistItems.querySelectorAll('input[type="checkbox"]');
+                    const allChecked = Array.from(checkboxes).every(cb => cb.checked);
+                    
+                    if (checkboxes.length > 0 && !allChecked) {
+                        alert('Для приёмки необходимо отметить все пункты чек-листа!');
+                        return;
+                    }
+                    this.handleStatusChange('accepted');
+                };
                 this.actionsContainer.appendChild(acceptBtn);
                 
                 // Кнопка Добавить несоответствие
@@ -175,3 +266,4 @@ class ApplicationDetailsModal {
 }
 
 window.ApplicationDetailsModal = ApplicationDetailsModal;
+

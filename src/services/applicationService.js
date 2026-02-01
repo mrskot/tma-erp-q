@@ -58,6 +58,7 @@ class ApplicationService {
         lot_id,
         master_id,
         drawing_number,
+        production_order_number, // Новое поле
         desired_inspection_time,
         quantity = 1,
         has_serial_numbers = false,
@@ -102,6 +103,7 @@ class ApplicationService {
           lot_id,
           master_id,
           drawing_number,
+          production_order_number, // Сохраняем номер заказа
           desired_inspection_time,
           quantity: 1,
           serial_number,
@@ -188,14 +190,25 @@ class ApplicationService {
 
       // ЛОГИКА "ВЗЯТЬ В РАБОТУ": Автоматическое назначение инспектора
       let inspector_id = oldApp.inspector_id;
+      let assigned_at = oldApp.assigned_at;
+      let inspected_at = oldApp.inspected_at;
+
       if (status === 'in_progress' && !oldApp.inspector_id && user.role === 'inspector') {
         inspector_id = user.id;
+        assigned_at = new Date();
+      }
+
+      // ФИКСАЦИЯ ВРЕМЕНИ ЗАВЕРШЕНИЯ (Принято или Отклонено)
+      if (['accepted', 'rejected'].includes(status)) {
+        inspected_at = new Date();
       }
 
       // Обновляем статус и инспектора (если изменился)
       const updated = await Application.update(id, { 
         status, 
         inspector_id,
+        assigned_at,
+        inspected_at,
         rejection_reason: rejectionReason 
       });
 

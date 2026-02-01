@@ -6,6 +6,7 @@ class Application {
       .select(
         'a.*',
         'p.name as product_name',
+        'p.checklist as product_checklist', // Подтягиваем чек-лист из изделия
         'l.name as lot_name',
         db.raw("master.first_name || ' ' || master.last_name as master_name"),
         db.raw("inspector.first_name || ' ' || inspector.last_name as inspector_name"),
@@ -110,10 +111,23 @@ class Application {
   }
 
   static async update(id, appData) {
+    const allowedColumns = [
+      'product_id', 'lot_id', 'master_id', 'inspector_id', 
+      'application_number', 'drawing_number', 'serial_number', 
+      'status', 'rejection_reason', 'desired_inspection_time', 
+      'mki_photo_url', 'is_active', 'btx_id', 'production_order_number', 
+      'inspected_at'
+    ];
+
+    const filteredData = {};
+    allowedColumns.forEach(col => {
+      if (appData[col] !== undefined) filteredData[col] = appData[col];
+    });
+
     await db('applications')
       .where({ id })
       .update({
-        ...appData,
+        ...filteredData,
         updated_at: db.fn.now()
       });
     return this.findById(id);

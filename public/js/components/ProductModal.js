@@ -105,7 +105,9 @@ class ProductModal {
         this.checklistContainer.querySelectorAll('.checklist-item-input').forEach(input => {
             const task = input.value.trim();
             if (task) {
-                items.push({ task });
+
+                // СОХРАНЯЕМ КАК СТРОКУ, а не объект
+                items.push(task);
             }
         });
         return items;

@@ -13,6 +13,7 @@ class ApplicationModal {
         
         // --- Элементы формы ---
         this.productIdSelect = document.getElementById('app-product-id');
+        this.productionOrderInput = document.getElementById('app-production-order'); // № Заказа
         this.drawingNumberInput = document.getElementById('app-drawing-number');
         this.desiredTimeInput = document.getElementById('app-desired-time');
         this.quantityInput = document.getElementById('app-quantity');
@@ -43,35 +44,42 @@ class ApplicationModal {
 
     // --- Логика авто-заполнения ---
     handleLotChange() {
-        if (this.masterIdSelect.disabled) {
-            console.log('Master select is disabled (current user is master)');
-            return; // Не меняем мастера, если поле заблокировано (т.е. заявку создает сам мастер)
-        }
-        
         const lotId = parseInt(this.lotIdSelect.value);
         console.log('handleLotChange - lotId:', lotId);
-        console.log('handleLotChange - lotsCache:', this.lotsCache);
+        
+        // 1. Фильтрация изделий по участку
+        this.filterProductsByLot(lotId);
+
+        if (this.masterIdSelect.disabled) {
+            return; // Не меняем мастера, если текущий пользователь - мастер
+        }
         
         if (!lotId || !this.lotsCache) {
-            console.log('No lotId or lotsCache is empty');
-            this.masterIdSelect.value = ''; // Сбрасываем, если участок не выбран
+            this.masterIdSelect.value = '';
             return;
         }
 
         const selectedLot = this.lotsCache.find(l => l.id === lotId);
-        
-        console.log('selectedLot:', selectedLot);
-        
-        // --- ИСПРАВЛЕНИЕ: Проверяем, что участок найден и используем правильные поля ---
         if (selectedLot) {
-            // Приоритет у временного мастера (temp_master_id), затем у основного (main_master_id)
             const masterId = selectedLot.temp_master_id || selectedLot.main_master_id;
-            console.log('Setting master_id to:', masterId);
             this.masterIdSelect.value = masterId || '';
         } else {
-            console.warn('Lot not found in cache for id:', lotId);
             this.masterIdSelect.value = '';
         }
+    }
+
+    filterProductsByLot(lotId) {
+        if (!lotId) {
+            this.populateSelect(this.productIdSelect, [], { placeholder: 'Сначала выберите участок' });
+            return;
+        }
+
+        const filteredProducts = this.productsCache.filter(p => p.is_active && p.lot_id === lotId);
+        this.populateSelect(this.productIdSelect, filteredProducts, { 
+            valueField: 'id', 
+            textField: 'name', 
+            placeholder: filteredProducts.length > 0 ? 'Выберите изделие' : 'На этом участке нет изделий' 
+        });
     }
     
     // --- Логика рендеринга динамических полей ---
@@ -176,13 +184,18 @@ class ApplicationModal {
         this.masterIdSelect.disabled = isMaster;
 
         if (isMaster) {
-            // СЦЕНАРИЙ 1: Пользователь - Мастер
             this.masterIdSelect.value = currentUser.id; 
 
             const masterLots = activeLots.filter(lot =>
                 lot.main_master_id === currentUser.id || lot.temp_master_id === currentUser.id
             );
             this.populateSelect(this.lotIdSelect, masterLots, { valueField: 'id', textField: 'name', placeholder: 'Выберите ваш участок' });
+            
+            // Если у мастера только один участок, выбираем его сразу
+            if (masterLots.length === 1) {
+                this.lotIdSelect.value = masterLots[0].id;
+                this.handleLotChange();
+            }
         } else {
             // СЦЕНАРИЙ 2: Пользователь - Админ или другая роль
             this.populateSelect(this.lotIdSelect, activeLots, { valueField: 'id', textField: 'name', placeholder: 'Сначала выберите участок' });
@@ -229,6 +242,7 @@ class ApplicationModal {
             product_id: parseInt(this.productIdSelect.value),
             lot_id: parseInt(this.lotIdSelect.value),
             master_id: parseInt(this.masterIdSelect.value),
+            production_order_number: this.productionOrderInput.value.trim(),
             drawing_number: this.drawingNumberInput.value.trim(),
             desired_inspection_time: new Date(this.desiredTimeInput.value).toISOString(),
             quantity: quantity,

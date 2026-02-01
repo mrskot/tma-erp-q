@@ -315,68 +315,39 @@ class App {
                     </div>
                 `;
             } else if (user.role === 'master') {
-                const appsRes = await window.TMA_API.getApplications({ master_id: user.id, status: 'new,assigned,in_progress' });
+                const appsRes = await window.TMA_API.getApplications({ master_id: user.id });
+                const apps = appsRes.data || [];
 
                 this.pageContent.innerHTML = `
-                    <div class="task-grid" id="master-apps-grid" style="padding-top: 0;"></div>
-                    ${appsRes.data.length > 12 ? '<button class="button-link" onclick="app.showPage(\'applications\')" style="margin: 10px 5px;">Смотреть все заявки</button>' : ''}
-                    
+                    <div id="master-dashboard-groups"></div>
                     <div class="sticky-footer-action-dual">
                         <button class="button button-secondary" onclick="app.openCreateDiscrepancyModal()">⚠️ Зафиксировать несоответствие</button>
                         <button class="button" onclick="app.openCreateApplicationModal()">✨ Создать партию заявок</button>
                     </div>
                 `;
 
-                const appsGrid = document.getElementById('master-apps-grid');
-                if (appsRes.data.length > 0) {
-                    appsRes.data.forEach(app => {
-                        appsGrid.appendChild(window.UI.createApplicationCard(app, (a) => this.viewApplication(a.id)));
-                    });
-                    // Добавляем распорку для футера
-                    const spacer = document.createElement('div');
-                    spacer.className = 'spacer-footer-dual';
-                    appsGrid.appendChild(spacer);
-                } else {
-                    appsGrid.innerHTML = '<p class="subtitle" style="padding: 20px;">Активных заявок нет.</p>';
-                }
+                const container = document.getElementById('master-dashboard-groups');
+                this.renderGroupedApplications(container, apps, ['new', 'assigned', 'in_progress', 'accepted', 'rejected']);
 
             } else if (user.role === 'inspector') {
-                // Запрашиваем свои заявки (в работе) и все новые (свободные)
                 const [myAppsRes, newAppsRes] = await Promise.all([
                     window.TMA_API.getApplications({ inspector_id: user.id, status: 'assigned,in_progress' }),
-                    window.TMA_API.getApplications({ status: 'new' }) // Для статуса NEW не передаем inspector_id
+                    window.TMA_API.getApplications({ status: 'new' })
                 ]);
 
                 this.pageContent.innerHTML = `
-                    <div class="dashboard-grid">
-                        <div class="dashboard-card full-width">
-                            <h4>🆕 Свободные заявки (${newAppsRes.data.length})</h4>
-                            <div class="task-grid" id="inspector-new-apps-grid"></div>
-                        </div>
-                        <div class="dashboard-card full-width">
-                            <h4>📋 В моей работе (${myAppsRes.data.length})</h4>
-                            <div class="task-grid" id="inspector-apps-grid"></div>
-                        </div>
-                    </div>
+                    <div id="inspector-dashboard-groups"></div>
                 `;
 
-                const newAppsGrid = document.getElementById('inspector-new-apps-grid');
-                if (newAppsRes.data && newAppsRes.data.length > 0) {
-                    newAppsRes.data.forEach(app => {
-                        newAppsGrid.appendChild(window.UI.createApplicationCard(app, (a) => this.viewApplication(a.id)));
-                    });
-                } else {
-                    newAppsGrid.innerHTML = '<p class="subtitle">Новых заявок пока нет.</p>';
-                }
-
-                const appsGrid = document.getElementById('inspector-apps-grid');
-                if (myAppsRes.data && myAppsRes.data.length > 0) {
-                    myAppsRes.data.forEach(app => {
-                        appsGrid.appendChild(window.UI.createApplicationCard(app, (a) => this.viewApplication(a.id)));
-                    });
-                } else {
-                    appsGrid.innerHTML = '<p class="subtitle">Вы еще не взяли ни одной заявки в работу.</p>';
-                }
+                const container = document.getElementById('inspector-dashboard-groups');
+                
+                // Для инспектора особая группировка
+                this.renderGroup(container, '🆕 Свободные заявки', newAppsRes.data || [], 'new', false);
+                this.renderGroup(container, '📋 В моей работе', myAppsRes.data || [], 'in_progress', false);
+                
+                // Добавляем архив (скрытый по умолчанию)
+                const closedAppsRes = await window.TMA_API.getApplications({ inspector_id: user.id, status: 'accepted,rejected' });
+                this.renderGroup(container, '📦 Архив моих проверок', closedAppsRes.data || [], 'accepted', true);
             }
         } catch (error) {
             console.error('Ошибка Dashboard:', error);
@@ -766,6 +737,67 @@ class App {
             this.currentDiscSeverityFilter = target.value;
             this.renderDiscrepanciesPage();
         }
+    }
+
+    // --- Вспомогательные функции рендеринга групп ---
+
+    renderGroupedApplications(container, apps, statusOrder) {
+        const groups = {
+            new: { title: '🆕 Новые заявки', apps: [], color: '#3182ce' },
+            assigned: { title: '📅 Назначены', apps: [], color: '#805ad5' },
+            in_progress: { title: '⚙️ В работе', apps: [], color: '#dd6b20' },
+            accepted: { title: '✅ Принято', apps: [], color: '#38a169' },
+            rejected: { title: '❌ Отклонено', apps: [], color: '#e53e3e' }
+        };
+
+        apps.forEach(app => {
+            if (groups[app.status]) groups[app.status].apps.push(app);
+        });
+
+        statusOrder.forEach(status => {
+            const group = groups[status];
+            const isCollapsed = ['accepted', 'rejected'].includes(status);
+            this.renderGroup(container, group.title, group.apps, status, isCollapsed, group.color);
+        });
+        
+        // Распорка для футера
+        const spacer = document.createElement('div');
+        spacer.className = 'spacer-footer-dual';
+        container.appendChild(spacer);
+    }
+
+    renderGroup(container, title, apps, status, isCollapsed, color = '#475569') {
+        if (apps.length === 0 && !['new', 'in_progress'].includes(status)) return;
+
+        const groupEl = document.createElement('div');
+        groupEl.className = `status-group ${isCollapsed ? 'collapsed' : ''}`;
+        
+        groupEl.innerHTML = `
+            <div class="status-group-header">
+                <div class="status-group-title" style="color: ${color}">
+                    <span class="status-group-icon">▼</span>
+                    ${title}
+                </div>
+                <span class="status-group-count">${apps.length}</span>
+            </div>
+            <div class="status-group-content">
+                <div class="task-grid"></div>
+            </div>
+        `;
+
+        const header = groupEl.querySelector('.status-group-header');
+        header.onclick = () => groupEl.classList.toggle('collapsed');
+
+        const grid = groupEl.querySelector('.task-grid');
+        if (apps.length > 0) {
+            apps.forEach(app => {
+                grid.appendChild(window.UI.createApplicationCard(app, (a) => this.viewApplication(a.id)));
+            });
+        } else {
+            grid.innerHTML = '<p class="subtitle" style="padding: 10px;">Нет заявок в этом статусе</p>';
+        }
+
+        container.appendChild(groupEl);
     }
 
     // --- CRUD Пользователей ---

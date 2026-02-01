@@ -204,9 +204,13 @@
         <div id="application-modal" class="modal">
             <div class="modal-content large">
                 <span class="close">&times;</span>
-                <h2 class="modal-title" style="font-size: 18px; margin-bottom: 15px;">Создать партию заявок</h2>
+                <h2 class="modal-title" style="font-size: 16px; margin-bottom: 15px; font-weight: 700;">Создать партию заявок</h2>
                 <form id="application-form">
                     <div class="form-grid">
+                        <div class="form-group">
+                            <label for="app-production-order">№ Произв. заказа:</label>
+                            <input type="text" id="app-production-order" name="production_order_number" placeholder="Введите № заказа" required>
+                        </div>
                         <div class="form-group">
                             <label for="app-lot-id">Участок:</label>
                             <select id="app-lot-id" name="lot_id" required></select>
@@ -229,13 +233,13 @@
                         </div>
                     </div>
 
-                    <div id="app-serials-container" class="serials-grid">
-                        <!-- Сюда будут динамически добавляться поля для серийных номеров -->
-                    </div>
-
-                    <div class="form-group-horizontal" style="margin: 15px 0 10px 0;">
+                    <div class="form-group-horizontal" style="margin: 10px 0;">
                         <input type="checkbox" id="app-has-serials" name="has_serial_numbers" checked>
                         <label for="app-has-serials" style="font-weight: 700;">Указать серийные номера</label>
+                    </div>
+
+                    <div id="app-serials-container" class="serials-grid">
+                        <!-- Сюда будут динамически добавляться поля для серийных номеров -->
                     </div>
 
                     <div class="form-group">
@@ -261,13 +265,21 @@
                 
                 <div id="app-details-content">
                     <div class="details-section">
-                        <div class="details-row" style="margin-bottom: 8px;"><strong>Номер:</strong> <span id="view-app-number"></span></div>
-                        <div class="details-row" style="margin-bottom: 8px;"><strong>Изделие:</strong> <span id="view-app-product"></span></div>
-                        <div class="details-row" style="margin-bottom: 8px;"><strong>Чертеж:</strong> <span id="view-app-drawing"></span></div>
-                        <div class="details-row" style="margin-bottom: 8px;"><strong>Серийный номер:</strong> <span id="view-app-serial"></span></div>
-                        <div class="details-row" style="margin-bottom: 8px;"><strong>Мастер:</strong> <span id="view-app-master"></span></div>
-                        <div class="details-row" style="margin-bottom: 8px;"><strong>Участок:</strong> <span id="view-app-lot"></span></div>
-                        <div class="details-row" style="margin-bottom: 8px;"><strong>Статус:</strong> <span id="view-app-status" class="status-badge"></span></div>
+                        <div class="details-row" style="margin-bottom: 8px; border-bottom: 1px solid #eee; padding-bottom: 8px;"><strong>Номер:</strong> <span id="view-app-number" style="font-weight: 700;"></span></div>
+                        <div class="details-row" style="margin-bottom: 4px;">Заказ: <span id="view-app-order" style="font-weight: 700; margin-left: 10px;"></span></div>
+                        <div class="details-row" style="margin-bottom: 4px;">Изделие: <span id="view-app-product" style="font-weight: 700; margin-left: 10px;"></span></div>
+                        <div class="details-row" style="margin-bottom: 4px;">Чертеж: <span id="view-app-drawing" style="font-weight: 700; margin-left: 10px;"></span></div>
+                        <div class="details-row" style="margin-bottom: 4px;">Сер. номер: <span id="view-app-serial" style="font-weight: 700; margin-left: 10px;"></span></div>
+                        <div class="details-row" style="margin-bottom: 4px;">Мастер: <span id="view-app-master" style="font-weight: 700; margin-left: 10px;"></span></div>
+                        <div class="details-row" style="margin-bottom: 4px;">Участок: <span id="view-app-lot" style="font-weight: 700; margin-left: 10px;"></span></div>
+                        <div class="details-row" style="margin-bottom: 4px;">Статус: <span id="view-app-status" class="status-badge" style="margin-left: 10px;"></span></div>
+                    </div>
+
+                    <div id="view-app-checklist-section" class="details-section" style="display: none; margin-top: 15px;">
+                        <div style="font-weight: 700; margin-bottom: 10px;">📋 Чек-лист контроля:</div>
+                        <div id="view-app-checklist-items" style="background: #f9f9f9; padding: 10px; border-radius: 8px; border: 1px solid #eee;">
+                            <!-- Пункты чек-листа -->
+                        </div>
                     </div>
 
                     <div id="view-app-mki-section" class="details-section" style="display: none; margin-top: 15px;">

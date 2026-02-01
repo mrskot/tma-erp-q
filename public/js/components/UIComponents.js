@@ -53,15 +53,15 @@ const UI = {
             </div>
             <div class="card-body" style="padding: 10px 12px; display: flex; flex-direction: column; gap: 5px;">
                 <div class="detail-row" style="display: flex; align-items: baseline;">
+                    <span class="detail-label" style="font-style: italic; font-size: 12px; color: #777; flex: 0 0 90px;">Заказ</span>
+                    <span class="detail-value" style="font-weight: 700; font-size: 13px; color: #111; flex: 1;">${app.production_order_number || '—'}</span>
+                </div>
+                <div class="detail-row" style="display: flex; align-items: baseline;">
                     <span class="detail-label" style="font-style: italic; font-size: 12px; color: #777; flex: 0 0 90px;">Чертеж</span>
                     <span class="detail-value" style="font-weight: 700; font-size: 13px; color: #111; flex: 1;">${app.drawing_number || '—'}</span>
                 </div>
                 <div class="detail-row" style="display: flex; align-items: baseline;">
-                    <span class="detail-label" style="font-style: italic; font-size: 12px; color: #777; flex: 0 0 90px;">Участок</span>
-                    <span class="detail-value" style="font-weight: 700; font-size: 13px; color: #111; flex: 1;">${app.lot_name || '—'}</span>
-                </div>
-                <div class="detail-row" style="display: flex; align-items: baseline;">
-                    <span class="detail-label" style="font-style: italic; font-size: 12px; color: #777; flex: 0 0 90px;">Серийник</span>
+                    <span class="detail-label" style="font-style: italic; font-size: 12px; color: #777; flex: 0 0 90px;">Сер. номер</span>
                     <span class="detail-value" style="font-weight: 700; font-size: 13px; color: #111; flex: 1;">${app.serial_number || '—'}</span>
                 </div>
                 <div class="detail-row" style="display: flex; align-items: baseline;">

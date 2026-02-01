@@ -73,8 +73,8 @@ class DiscrepancyService {
         if (!application) throw new Error('Заявка не найдена');
       }
 
-      if (!discData.responsible_id && application) {
-        discData.responsible_id = application.master_id;
+      if (!discData.responsible_id) {
+        discData.responsible_id = application ? application.master_id : user.id;
       }
 
       if (discData.responsible_id) {
