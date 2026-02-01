@@ -1,6 +1,7 @@
 const Discrepancy = require('../models/Discrepancy');
 const User = require('../models/User');
 const Application = require('../models/Application');
+const Product = require('../models/Product');
 const activityLogService = require('./activityLogService');
 
 class DiscrepancyService {
@@ -144,11 +145,39 @@ class DiscrepancyService {
       const validStatuses = ['new', 'assigned', 'in_progress', 'resolved', 'closed'];
       if (!validStatuses.includes(status)) throw new Error('Недопустимый статус');
 
+      // ЖЕСТКАЯ ОЧИСТКА ОТ ПОЛЯ details (которое может прилететь с фронта)
       const updateData = { ...additionalData };
+      if (updateData.details) {
+        if (!updateData.description) updateData.description = updateData.details;
+        delete updateData.details;
+      }
+
+      // ЛОГИКА АВТО-ЗАКРЫТИЯ (LITE MODE)
+      if (status === 'resolved' && !updateData.is_disputed) {
+        const application = await Application.findById(oldDisc.application_id);
+        if (application) {
+          const product = await Product.findById(application.product_id);
+          if (product && product.inspection_mode === 'lite') {
+            // Перехватываем управление и сразу закрываем
+            status = 'closed';
+            closureScenario = 'fixed';
+            updateData.closed_at = new Date();
+
+            // Гарантируем, что используем правильное поле description
+            const currentDesc = updateData.description || oldDisc.description || '';
+            updateData.description = currentDesc + ' [LITE-AUTO-CLOSE]';
+          }
+        }
+      }
 
       // ЛОГИКА ДЛЯ МАСТЕРА (Устранение)
       if (status === 'resolved' && !updateData.is_disputed) {
-        if (!updateData.fix_photo_url) {
+        // Проверяем, не Lite ли режим, прежде чем требовать фото
+        const application = await Application.findById(oldDisc.application_id);
+        const product = application ? await Product.findById(application.product_id) : null;
+        const isLite = product && product.inspection_mode === 'lite';
+
+        if (!isLite && !updateData.fix_photo_url) {
           throw new Error('Для отметки об устранении необходимо приложить фото результата');
         }
       }

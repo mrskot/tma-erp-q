@@ -13,6 +13,7 @@ class ProductModal {
         this.lotSelect = document.getElementById('product-lot-id');
         this.inspectorSelect = document.getElementById('product-default-inspector-id');
         this.inspectionTimeInput = document.getElementById('product-inspection-time');
+        this.inspectionModeSelect = document.getElementById('product-inspection-mode');
         
         // Управление чек-листом
         this.checklistContainer = document.getElementById('product-checklist-container');
@@ -132,6 +133,7 @@ class ProductModal {
             // Заполнение новых полей
             this.inspectorSelect.value = productData.default_inspector_id || '';
             this.inspectionTimeInput.value = productData.inspection_time_minutes || '';
+            this.inspectionModeSelect.value = productData.inspection_mode || 'lite';
 
             // Рендеринг чек-листа
             this.renderChecklist(productData.checklist);
@@ -160,6 +162,7 @@ class ProductModal {
             lot_id: this.lotSelect.value ? parseInt(this.lotSelect.value) : null,
             default_inspector_id: this.inspectorSelect.value ? parseInt(this.inspectorSelect.value) : null,
             inspection_time_minutes: this.inspectionTimeInput.value ? parseInt(this.inspectionTimeInput.value) : null,
+            inspection_mode: this.inspectionModeSelect.value,
             checklist: this.getChecklistFromDOM()
         };
 

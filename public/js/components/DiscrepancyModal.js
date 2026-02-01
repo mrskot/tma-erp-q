@@ -108,6 +108,7 @@ class DiscrepancyModal {
         if (appInfoDiv) appInfoDiv.style.display = 'none';
 
         if (this.editMode && discrepancyData) {
+            this.currentDiscrepancyData = discrepancyData; // Сохраняем для логики кнопок
             this.title.textContent = `Несоответствие ${discrepancyData.discrepancy_number}`;
             this.title.style.fontSize = user.role === 'master' ? '16px' : '18px';
 
@@ -368,7 +369,10 @@ class DiscrepancyModal {
         const fixPhoto = this.form.elements.fix_photo_url.value;
         const opinion = this.form.elements.special_opinion.value;
 
-        if (action === 'resolved' && !fixPhoto) {
+        // Проверяем режим из данных, которые мы получили при открытии модалки
+        const isLite = this.currentDiscrepancyData && this.currentDiscrepancyData.inspection_mode === 'lite';
+
+        if (action === 'resolved' && !isLite && !fixPhoto) {
             alert('Пожалуйста, приложите фото устранения (URL).');
             return;
         }

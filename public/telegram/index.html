@@ -175,9 +175,18 @@
                             <!-- Опции контролёров будут загружены динамически -->
                         </select>
                     </div>
-                    <div class="form-group">
-                        <label for="product-inspection-time">Норма времени на приёмку (мин):</label>
-                        <input type="number" id="product-inspection-time" name="inspection_time_minutes" min="1" placeholder="30">
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label for="product-inspection-time">Норма времени (мин):</label>
+                            <input type="number" id="product-inspection-time" name="inspection_time_minutes" min="1" placeholder="30">
+                        </div>
+                        <div class="form-group">
+                            <label for="product-inspection-mode">Режим контроля:</label>
+                            <select id="product-inspection-mode" name="inspection_mode">
+                                <option value="lite" selected>LITE (Авто-закрытие)</option>
+                                <option value="hard">HARD (Тотальный контроль)</option>
+                            </select>
+                        </div>
                     </div>
                     <div class="form-group">
                         <label style="font-weight: 700; display: block; margin-bottom: 8px;">📋 Чек-лист проверки:</label>
