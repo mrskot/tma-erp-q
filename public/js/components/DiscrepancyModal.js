@@ -103,6 +103,11 @@ class DiscrepancyModal {
         // Поля ввода (для блокировки)
         const inputs = this.form.querySelectorAll('input:not([type="hidden"]), select, textarea');
 
+        // Группы полей для скрытия при создании
+        const statusGroup = this.statusSelect.closest('.form-grid');
+        const dueDateField = document.getElementById('disc-due-date');
+        const dueDateGroup = dueDateField ? dueDateField.closest('.form-group') : null;
+
         // Сброс видимости доп. секций
         document.getElementById('special-opinion-group').style.display = 'block';
         if (appInfoDiv) appInfoDiv.style.display = 'none';
@@ -112,10 +117,16 @@ class DiscrepancyModal {
             this.title.textContent = `Несоответствие ${discrepancyData.discrepancy_number}`;
             this.title.style.fontSize = user.role === 'master' ? '16px' : '18px';
 
+            // В режиме редактирования показываем статус и срок ТОЛЬКО для Контролера/Админа
+            const isInspector = user.role === 'inspector' || user.role === 'admin' || user.role === 'director';
+            if (statusGroup) statusGroup.style.display = isInspector ? 'grid' : 'none';
+            if (dueDateGroup) dueDateGroup.style.display = isInspector ? 'block' : 'none';
+
             // Показываем инфо о заявке
             if (appInfoDiv && appNumberSpan) {
                 appInfoDiv.style.display = 'block';
-                appNumberSpan.textContent = discrepancyData.application_number || discrepancyData.application_id || '---';
+                const btxInfo = discrepancyData.btx_appl_id ? ` [BTX: ${discrepancyData.btx_appl_id}]` : '';
+                appNumberSpan.textContent = (discrepancyData.application_number || '---') + btxInfo;
             }
 
             this.form.elements.id.value = discrepancyData.id;
@@ -182,9 +193,32 @@ class DiscrepancyModal {
             this.form.elements.id.value = '';
             this.form.elements.application_id.value = applicationId || '';
             this.statusSelect.value = 'new';
+            
+            // СКРЫВАЕМ ЛИШНЕЕ ПРИ СОЗДАНИИ
+            if (statusGroup) statusGroup.style.display = 'none';
+            if (dueDateGroup) dueDateGroup.style.display = 'none';
+
             masterFields.style.display = 'none';
             if (actionsDiv) actionsDiv.innerHTML = '';
             
+            // АВТОПОДСТАНОВКА ОТВЕТСТВЕННОГО (Мастера заявки)
+            if (applicationId) {
+                try {
+                    const appRes = await window.TMA_API.getApplicationById(applicationId);
+                    if (appRes.success && appRes.data.master_id) {
+                        this.form.elements.responsible_id.value = appRes.data.master_id;
+                        
+                        if (appInfoDiv && appNumberSpan) {
+                            appInfoDiv.style.display = 'block';
+                            const btxInfo = appRes.data.btx_appl_id ? ` [BTX: ${appRes.data.btx_appl_id}]` : '';
+                            appNumberSpan.textContent = `${appRes.data.application_number} / ${appRes.data.product_name}${btxInfo}`;
+                        }
+                    }
+                } catch (e) {
+                    console.error('Error fetching app for responsible auto-select:', e);
+                }
+            }
+
             // При создании всё должно быть доступно
             inputs.forEach(input => input.disabled = false);
             submitButton.style.display = 'block';
@@ -192,7 +226,7 @@ class DiscrepancyModal {
             this.handleStatusChange();
             
             const defaultDate = new Date();
-            defaultDate.setHours(defaultDate.getHours() + 24); // + 1 день
+            defaultDate.setHours(defaultDate.getHours() + 48); // + 2 дня
             const tzOffset = defaultDate.getTimezoneOffset() * 60000;
             const localISOTime = (new Date(defaultDate - tzOffset)).toISOString().slice(0, 16);
             this.form.elements.due_date.value = localISOTime;

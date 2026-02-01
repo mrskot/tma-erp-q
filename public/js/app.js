@@ -252,6 +252,7 @@ class App {
             this.updateViewState();
             return;
         }
+        this.currentPage = pageName;
         const userRole = user.role;
         const roleConfig = this.ROLES_CONFIG[userRole];
 
@@ -327,7 +328,26 @@ class App {
                 `;
 
                 const container = document.getElementById('master-dashboard-groups');
-                this.renderGroupedApplications(container, apps, ['new', 'assigned', 'in_progress', 'accepted', 'rejected']);
+                
+                // Разделяем заявки мастера по новой логике
+                const attentionApps = apps.filter(app => parseInt(app.total_discrepancies || 0) > parseInt(app.closed_discrepancies || 0));
+                const inWorkApps = apps.filter(app => app.status === 'in_progress' && parseInt(app.total_discrepancies || 0) === parseInt(app.closed_discrepancies || 0));
+                const newApps = apps.filter(app => app.status === 'new' || app.status === 'assigned');
+                const acceptedApps = apps.filter(app => app.status === 'accepted' || app.status === 'rejected');
+
+                // Рендерим группы в нужном порядке
+                if (attentionApps.length > 0) {
+                    this.renderGroup(container, '⚠️ Требуют внимания', attentionApps, 'in_progress', false, '#e53e3e');
+                }
+                
+                this.renderGroup(container, '⚙️ В работе', inWorkApps, 'in_progress', false, '#dd6b20');
+                this.renderGroup(container, '🆕 Новые', newApps, 'new', false, '#3182ce');
+                this.renderGroup(container, '✅ Принято', acceptedApps, 'accepted', true, '#38a169');
+                
+                // Распорка для футера
+                const spacer = document.createElement('div');
+                spacer.className = 'spacer-footer-dual';
+                container.appendChild(spacer);
 
             } else if (user.role === 'inspector') {
                 const [myAppsRes, newAppsRes] = await Promise.all([
@@ -340,14 +360,24 @@ class App {
                 `;
 
                 const container = document.getElementById('inspector-dashboard-groups');
+                const allMyApps = myAppsRes.data || [];
                 
-                // Для инспектора особая группировка
-                this.renderGroup(container, '🆕 Свободные заявки', newAppsRes.data || [], 'new', false);
-                this.renderGroup(container, '📋 В моей работе', myAppsRes.data || [], 'in_progress', false);
+                // Разделяем на "Проблемные" и "Чистые"
+                const attentionApps = allMyApps.filter(app => parseInt(app.total_discrepancies || 0) > 0);
+                const cleanApps = allMyApps.filter(app => parseInt(app.total_discrepancies || 0) === 0);
+                
+                // Для инспектора: сначала В МОЕЙ РАБОТЕ, потом ТРЕБУЮТ ВНИМАНИЯ, потом СВОБОДНЫЕ
+                this.renderGroup(container, '📋 В моей работе', cleanApps, 'in_progress', false, '#dd6b20');
+
+                if (attentionApps.length > 0) {
+                    this.renderGroup(container, '⚠️ Требуют внимания', attentionApps, 'in_progress', false, '#e53e3e');
+                }
+                
+                this.renderGroup(container, '🆕 Свободные заявки', newAppsRes.data || [], 'new', false, '#3182ce');
                 
                 // Добавляем архив (скрытый по умолчанию)
                 const closedAppsRes = await window.TMA_API.getApplications({ inspector_id: user.id, status: 'accepted,rejected' });
-                this.renderGroup(container, '📦 Архив моих проверок', closedAppsRes.data || [], 'accepted', true);
+                this.renderGroup(container, '📦 Архив моих проверок', closedAppsRes.data || [], 'accepted', true, '#475569');
             }
         } catch (error) {
             console.error('Ошибка Dashboard:', error);
@@ -952,7 +982,12 @@ class App {
             onSave: async (batchData) => {
                 await window.TMA_API.createBatchApplications(batchData);
                 this.applicationModal.hide();
-                this.renderApplicationsPage();
+                // АВТО-РЕФРЕШ Группировки
+                if (window.AuthManager.getUser().role === 'master') {
+                    this.renderDashboard();
+                } else {
+                    this.renderApplicationsPage();
+                }
             }
         });
     }
@@ -1007,7 +1042,15 @@ class App {
                 onSave: async (data) => {
                     await window.TMA_API.updateDiscrepancy(id, data);
                     this.discrepancyModal.hide();
-                    this.renderDiscrepanciesPage();
+                    
+                    // УМНЫЙ РЕФРЕШ:
+                    // Если мы на Дашборде - вызываем renderDashboard
+                    // Если в разделе Несоответствия - вызываем renderDiscrepanciesPage
+                    if (this.currentPage === 'dashboard') {
+                        await this.renderDashboard();
+                    } else {
+                        await this.renderDiscrepanciesPage();
+                    }
                 }
             });
         } catch (e) {

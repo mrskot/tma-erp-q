@@ -30,13 +30,21 @@ const UI = {
         let discCounterHtml = '';
         const totalDisc = parseInt(app.total_discrepancies || 0);
         const closedDisc = parseInt(app.closed_discrepancies || 0);
+        const activeDisc = totalDisc - closedDisc;
         
         if (totalDisc > 0) {
             const isAllClosed = totalDisc === closedDisc;
+            const hasConflict = activeDisc > 0;
+            
+            // Если всё устранено мастером (isAllClosed), но контролер еще не принял - подсвечиваем синим
+            const bgColor = isAllClosed ? '#e6f7ff' : (hasConflict ? '#fff1f0' : '#fff7e6');
+            const borderColor = isAllClosed ? '#91d5ff' : (hasConflict ? '#ffa39e' : '#ffd591');
+            const textColor = isAllClosed ? '#0050b3' : (hasConflict ? '#cf1322' : '#d46b08');
+            const icon = isAllClosed ? '🔄' : '❗';
+
             discCounterHtml = `
-                <div style="background: ${isAllClosed ? '#f6ffed' : '#fff7e6'}; border: 1px solid ${isAllClosed ? '#b7eb8f' : '#ffd591'}; padding: 2px 6px; border-radius: 4px; display: flex; align-items: center; gap: 4px; margin-top: 4px;">
-                    <span style="font-size: 10px; font-weight: 700; color: ${isAllClosed ? '#389e0d' : '#d46b08'};">⚠️ ${totalDisc}/${closedDisc}</span>
-                    <span style="font-size: 9px; color: ${isAllClosed ? '#389e0d' : '#d46b08'};">${isAllClosed ? 'Закрыты' : 'В работе'}</span>
+                <div style="background: ${bgColor}; border: 1px solid ${borderColor}; padding: 2px 8px; border-radius: 4px; display: flex; align-items: center; gap: 4px; margin-top: 4px; white-space: nowrap;">
+                    <span style="font-size: 12px; font-weight: 900; color: ${textColor};">${icon} ${totalDisc}/${closedDisc}</span>
                 </div>
             `;
         }

@@ -82,7 +82,7 @@ class DiscrepancyService {
         if (!responsible) throw new Error('Ответственное лицо не найдено');
       }
 
-      if (!discData.inspector_id && user && user.role === 'inspector') {
+      if (!discData.inspector_id && user && (user.role === 'inspector' || user.role === 'admin')) {
         discData.inspector_id = user.id;
       }
 

@@ -48,13 +48,14 @@ class ApplicationDetailsModal {
             this.currentApp = app;
             
             // Заполняем поля
-            this.fields.number.textContent = app.application_number;
-            this.fields.order.textContent = app.production_order_number || '—';
-            this.fields.product.textContent = app.product_name;
-            this.fields.drawing.textContent = app.drawing_number || '—';
-            this.fields.serial.textContent = app.serial_number || '—';
-            this.fields.master.textContent = app.master_name;
-            this.fields.lot.textContent = app.lot_name;
+            this.fields.number.innerHTML = `<span style="font-weight: 800; font-size: 14px;">${app.application_number}</span>`;
+            
+            const createRow = (label, value) => {
+                return `<div style="display: flex; margin-bottom: 4px; font-size: 13px;">
+                    <span style="flex: 0 0 100px; color: #666; font-style: italic;">${label}:</span>
+                    <span style="font-weight: 800; color: #111;">${value || '—'}</span>
+                </div>`;
+            };
 
             const statusTranslations = {
                 new: 'Новая',
@@ -63,9 +64,29 @@ class ApplicationDetailsModal {
                 accepted: 'Принято',
                 rejected: 'Отклонено'
             };
+
+            const detailsContent = document.getElementById('app-details-content');
+            const detailsSection = detailsContent.querySelector('.details-section');
             
-            this.fields.status.textContent = statusTranslations[app.status] || app.status.toUpperCase();
-            this.fields.status.className = `status-badge bg-status-${app.status}`;
+            detailsSection.innerHTML = `
+                <div style="margin-bottom: 12px; border-bottom: 1px solid #eee; padding-bottom: 8px;">
+                    ${createRow('Номер', app.application_number)}
+                </div>
+                ${createRow('Заказ', app.production_order_number)}
+                ${createRow('Изделие', app.product_name)}
+                ${createRow('Чертеж', app.drawing_number)}
+                ${createRow('Сер. номер', app.serial_number)}
+                ${createRow('Мастер', app.master_name)}
+                ${createRow('Участок', app.lot_name)}
+                ${app.btx_appl_id ? createRow('Bitrix ID', app.btx_appl_id) : ''}
+                <div style="display: flex; align-items: center; margin-top: 8px;">
+                    <span style="flex: 0 0 100px; color: #666; font-style: italic;">Статус:</span>
+                    <span id="view-app-status" class="status-badge bg-status-${app.status}">${statusTranslations[app.status] || app.status.toUpperCase()}</span>
+                </div>
+            `;
+            
+            // Обновляем ссылку на статус, так как мы перерисовали innerHTML
+            this.fields.status = document.getElementById('view-app-status');
             
             // Рендерим Чек-лист
             this.renderChecklist(app);

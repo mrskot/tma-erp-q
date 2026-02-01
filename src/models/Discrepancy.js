@@ -3,16 +3,41 @@ const db = require('../config/database');
 class Discrepancy {
   static async findById(id) {
     return db('discrepancies as d')
-      .select('d.*', 'p.inspection_mode', 'a.application_number')
+      .select(
+        'd.*', 
+        'p.inspection_mode', 
+        'a.application_number',
+        'u_ins.first_name as inspector_first_name',
+        'u_ins.last_name as inspector_last_name',
+        'u_resp.first_name as responsible_first_name',
+        'u_resp.last_name as responsible_last_name'
+      )
       .leftJoin('applications as a', 'd.application_id', 'a.id')
       .leftJoin('products as p', 'a.product_id', 'p.id')
+      .leftJoin('users as u_ins', 'd.inspector_id', 'u_ins.id')
+      .leftJoin('users as u_resp', 'd.responsible_id', 'u_resp.id')
       .where({ 'd.id': id, 'd.is_active': true })
-      .first();
+      .first()
+      .then(disc => {
+        if (disc) {
+          disc.inspector_name = disc.inspector_first_name ? `${disc.inspector_first_name} ${disc.inspector_last_name}` : 'Система';
+          disc.responsible_name = disc.responsible_first_name ? `${disc.responsible_first_name} ${disc.responsible_last_name}` : 'Не назначен';
+        }
+        return disc;
+      });
   }
 
   static async findAll(filters = {}, limit = 100, offset = 0) {
-    const query = db('discrepancies')
-      .where({ is_active: true });
+    const query = db('discrepancies as d')
+      .select(
+        'd.*', 
+        'a.application_number',
+        'u_ins.first_name as inspector_first_name',
+        'u_ins.last_name as inspector_last_name'
+      )
+      .leftJoin('applications as a', 'd.application_id', 'a.id')
+      .leftJoin('users as u_ins', 'd.inspector_id', 'u_ins.id')
+      .where({ 'd.is_active': true });
 
     if (filters.application_id) {
       query.where('application_id', filters.application_id);
@@ -36,9 +61,13 @@ class Discrepancy {
     }
 
     return query
-      .orderBy('detected_at', 'desc')
+      .orderBy('d.detected_at', 'desc')
       .limit(limit)
-      .offset(offset);
+      .offset(offset)
+      .then(rows => rows.map(disc => {
+        disc.inspector_name = disc.inspector_first_name ? `${disc.inspector_first_name} ${disc.inspector_last_name}` : 'Система';
+        return disc;
+      }));
   }
 
   static async findByStatus(status, limit = 100, offset = 0) {
