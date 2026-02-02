@@ -7,6 +7,7 @@ class Discrepancy {
         'd.*', 
         'p.inspection_mode', 
         'a.application_number',
+        'a.btx_appl_id',
         'u_ins.first_name as inspector_first_name',
         'u_ins.last_name as inspector_last_name',
         'u_resp.first_name as responsible_first_name',

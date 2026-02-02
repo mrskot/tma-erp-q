@@ -1,9 +1,10 @@
 const DiscrepancyService = require('../services/discrepancyService');
 const { validationResult } = require('express-validator');
+const asyncHandler = require('../utils/asyncHandler');
+const { AppError } = require('../utils/errorHandler');
 
 class DiscrepancyController {
-  static async getAllDiscrepancies(req, res) {
-    try {
+  static getAllDiscrepancies = asyncHandler(async (req, res) => {
       const { limit = 100, offset = 0, status, responsible_id, severity, application_id } = req.query;
       const filters = { 
         status, 
@@ -18,25 +19,14 @@ class DiscrepancyController {
         data: result.discrepancies,
         pagination: result.pagination
       });
-    } catch (error) {
-      res.status(500).json({ success: false, message: error.message });
-    }
-  }
+  });
 
-  static async getDiscrepancyById(req, res) {
-    try {
+  static getDiscrepancyById = asyncHandler(async (req, res) => {
       const disc = await DiscrepancyService.getDiscrepancyById(parseInt(req.params.id));
       res.json({ success: true, data: disc });
-    } catch (error) {
-      res.status(error.message.includes('не найдено') ? 404 : 500).json({ 
-        success: false, 
-        message: error.message 
       });
-    }
-  }
 
-  static async getDiscrepanciesByStatus(req, res) {
-    try {
+  static getDiscrepanciesByStatus = asyncHandler(async (req, res) => {
       const { limit = 100, offset = 0 } = req.query;
       const discrepancies = await DiscrepancyService.getDiscrepanciesByStatus(
         req.params.status,
@@ -44,13 +34,9 @@ class DiscrepancyController {
         parseInt(offset)
       );
       res.json({ success: true, data: discrepancies });
-    } catch (error) {
-      res.status(400).json({ success: false, message: error.message });
-    }
-  }
+  });
 
-  static async getDiscrepanciesByResponsible(req, res) {
-    try {
+  static getDiscrepanciesByResponsible = asyncHandler(async (req, res) => {
       const { limit = 100, offset = 0 } = req.query;
       const discrepancies = await DiscrepancyService.getDiscrepanciesByResponsible(
         parseInt(req.params.responsibleId),
@@ -58,75 +44,45 @@ class DiscrepancyController {
         parseInt(offset)
       );
       res.json({ success: true, data: discrepancies });
-    } catch (error) {
-      res.status(error.message.includes('не найдено') ? 404 : 500).json({ 
-        success: false, 
-        message: error.message 
       });
-    }
-  }
 
-  static async getDiscrepanciesByApplication(req, res) {
-    try {
+  static getDiscrepanciesByApplication = asyncHandler(async (req, res) => {
       const discrepancies = await DiscrepancyService.getDiscrepanciesByApplication(
         parseInt(req.params.applicationId)
       );
       res.json({ success: true, data: discrepancies });
-    } catch (error) {
-      res.status(error.message.includes('не найдена') ? 404 : 500).json({ 
-        success: false, 
-        message: error.message 
       });
-    }
-  }
 
-  static async createDiscrepancy(req, res) {
-    try {
+  static createDiscrepancy = asyncHandler(async (req, res) => {
       if (!req.user || !['admin', 'inspector', 'director'].includes(req.user.role)) {
-        return res.status(403).json({ success: false, message: 'Недостаточно прав' });
+      throw new AppError('Недостаточно прав', 403);
       }
 
       const errors = validationResult(req);
       if (!errors.isEmpty()) {
-        return res.status(400).json({ 
-            success: false, 
-            errors: errors.array(),
-            message: 'Ошибка валидации: ' + errors.array().map(e => e.msg).join(', ')
-        });
-      }
-
+      throw new AppError('Ошибка валидации', 400, errors.array());
+    }
       const disc = await DiscrepancyService.createDiscrepancy(req.body, req.user);
       res.status(201).json({ success: true, message: 'Несоответствие создано', data: disc });
-    } catch (error) {
-      res.status(400).json({ success: false, message: error.message });
-    }
-  }
+  });
 
-  static async updateDiscrepancy(req, res) {
-    try {
+  static updateDiscrepancy = asyncHandler(async (req, res) => {
       if (!req.user || !['admin', 'inspector', 'director', 'master'].includes(req.user.role)) {
-        return res.status(403).json({ success: false, message: 'Недостаточно прав' });
+      throw new AppError('Недостаточно прав', 403);
       }
 
       const errors = validationResult(req);
       if (!errors.isEmpty()) {
-        return res.status(400).json({ success: false, errors: errors.array() });
+      throw new AppError('Ошибка валидации', 400, errors.array());
       }
 
       const disc = await DiscrepancyService.updateDiscrepancy(parseInt(req.params.id), req.body, req.user);
       res.json({ success: true, message: 'Несоответствие обновлено', data: disc });
-    } catch (error) {
-      res.status(error.message.includes('не найдено') ? 404 : 400).json({ 
-        success: false, 
-        message: error.message 
       });
-    }
-  }
 
-  static async updateDiscrepancyStatus(req, res) {
-    try {
+  static updateDiscrepancyStatus = asyncHandler(async (req, res) => {
       if (!req.user || !['admin', 'inspector', 'director', 'master'].includes(req.user.role)) {
-        return res.status(403).json({ success: false, message: 'Недостаточно прав' });
+      throw new AppError('Недостаточно прав', 403);
       }
 
       const { status, closure_scenario, ...additionalData } = req.body;
@@ -138,29 +94,18 @@ class DiscrepancyController {
         additionalData
       );
       res.json({ success: true, message: 'Статус обновлен', data: disc });
-    } catch (error) {
-      res.status(400).json({ success: false, message: error.message });
-    }
-  }
+  });
 
-  static async deleteDiscrepancy(req, res) {
-    try {
+  static deleteDiscrepancy = asyncHandler(async (req, res) => {
       if (!req.user || req.user.role !== 'admin') {
-        return res.status(403).json({ success: false, message: 'Недостаточно прав' });
+      throw new AppError('Недостаточно прав', 403);
       }
 
       const result = await DiscrepancyService.deleteDiscrepancy(parseInt(req.params.id));
       res.json({ success: true, message: result.message });
-    } catch (error) {
-      res.status(error.message.includes('не найдено') ? 404 : 400).json({ 
-        success: false, 
-        message: error.message 
       });
-    }
-  }
 
-  static async getDiscrepanciesBySeverity(req, res) {
-    try {
+  static getDiscrepanciesBySeverity = asyncHandler(async (req, res) => {
       const { limit = 100, offset = 0 } = req.query;
       const discrepancies = await DiscrepancyService.getDiscrepanciesBySeverity(
         req.params.severity,
@@ -168,19 +113,12 @@ class DiscrepancyController {
         parseInt(offset)
       );
       res.json({ success: true, data: discrepancies });
-    } catch (error) {
-      res.status(400).json({ success: false, message: error.message });
-    }
-  }
+  });
 
-  static async getDiscrepancyStatistics(req, res) {
-    try {
+  static getDiscrepancyStatistics = asyncHandler(async (req, res) => {
       const stats = await DiscrepancyService.getDiscrepancyStatistics();
       res.json({ success: true, data: stats });
-    } catch (error) {
-      res.status(500).json({ success: false, message: error.message });
+  });
     }
-  }
-}
-
 module.exports = DiscrepancyController;
+

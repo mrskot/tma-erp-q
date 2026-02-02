@@ -103,13 +103,13 @@ class DiscrepancyModal {
         // Поля ввода (для блокировки)
         const inputs = this.form.querySelectorAll('input:not([type="hidden"]), select, textarea');
 
-        // Группы полей для скрытия при создании
-        const statusGroup = this.statusSelect.closest('.form-grid');
+        const statusGroup = this.statusSelect ? this.statusSelect.closest('.form-grid') : null;
         const dueDateField = document.getElementById('disc-due-date');
         const dueDateGroup = dueDateField ? dueDateField.closest('.form-group') : null;
 
         // Сброс видимости доп. секций
-        document.getElementById('special-opinion-group').style.display = 'block';
+        const specialOpinionGroup = document.getElementById('special-opinion-group');
+        if (specialOpinionGroup) specialOpinionGroup.style.display = 'block';
         if (appInfoDiv) appInfoDiv.style.display = 'none';
 
         if (this.editMode && discrepancyData) {
@@ -125,6 +125,7 @@ class DiscrepancyModal {
             // Показываем инфо о заявке
             if (appInfoDiv && appNumberSpan) {
                 appInfoDiv.style.display = 'block';
+                appInfoDiv.style.marginBottom = '12px';
                 const btxInfo = discrepancyData.btx_appl_id ? ` [BTX: ${discrepancyData.btx_appl_id}]` : '';
                 appNumberSpan.textContent = (discrepancyData.application_number || '---') + btxInfo;
             }

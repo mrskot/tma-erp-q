@@ -1,281 +1,183 @@
 const UserService = require('../services/userService');
 const { validationResult } = require('express-validator');
 const { generateToken } = require('../middleware/auth');
+const asyncHandler = require('../utils/asyncHandler');
+const { AppError } = require('../utils/errorHandler');
 
 class UserController {
-  static async authenticate(req, res) {
-    try {
-      const errors = validationResult(req);
-      if (!errors.isEmpty()) {
-        return res.status(400).json({ errors: errors.array() });
-      }
-
-      const { telegram_id, pin_code } = req.body;
-      const user = await UserService.authenticate(telegram_id, pin_code);
-      
-      // Генерация JWT токена
-      const token = generateToken({
-        id: user.id,
-        telegram_id: user.telegram_id,
-        first_name: user.first_name,
-        last_name: user.last_name,
-        role: user.role
-      });
-      
-      res.json({
-        success: true,
-        message: 'Аутентификация успешна',
-        data: {
-          user,
-          token
-        }
-      });
-    } catch (error) {
-      res.status(401).json({
-        success: false,
-        message: error.message
-      });
+  static authenticate = asyncHandler(async (req, res) => {
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      throw new AppError('Ошибка валидации', 400, errors.array());
     }
-  }
 
-  static async getProfile(req, res) {
-    try {
-      if (!req.user) {
-        return res.status(401).json({
-          success: false,
-          message: 'Не авторизован'
-        });
+    const { telegram_id, pin_code } = req.body;
+    const user = await UserService.authenticate(telegram_id, pin_code);
+    
+    const token = generateToken({
+      id: user.id,
+      telegram_id: user.telegram_id,
+      first_name: user.first_name,
+      last_name: user.last_name,
+      role: user.role
+    });
+    
+    res.json({
+      success: true,
+      message: 'Аутентификация успешна',
+      data: {
+        user,
+        token
       }
+    });
+  });
 
-      const profile = await UserService.getProfile(req.user.telegram_id);
-      
-      res.json({
-        success: true,
-        data: profile
-      });
-    } catch (error) {
-      res.status(404).json({
-        success: false,
-        message: error.message
-      });
+  static getProfile = asyncHandler(async (req, res) => {
+    if (!req.user) {
+      throw new AppError('Не авторизован', 401);
     }
-  }
 
-  static async getAllUsers(req, res) {
-    try {
-      const allowedRoles = ['admin', 'director', 'inspector', 'master'];
-      if (!req.user || !allowedRoles.includes(req.user.role)) {
-        return res.status(403).json({
-          success: false,
-          message: 'Доступ запрещен. Требуется роль администратора или руководящая роль'
-        });
-      }
+    const profile = await UserService.getProfile(req.user.telegram_id);
+    
+    res.json({
+      success: true,
+      data: profile
+    });
+  });
 
-      const { limit = 100, offset = 0, status = 'active' } = req.query;
-      const result = await UserService.getAllUsers(parseInt(limit), parseInt(offset), status);
-      
-      res.json({
-        success: true,
-        data: result.users,
-        pagination: result.pagination
-      });
-    } catch (error) {
-      res.status(500).json({
-        success: false,
-        message: error.message
-      });
+  static getAllUsers = asyncHandler(async (req, res) => {
+    const allowedRoles = ['admin', 'director', 'inspector', 'master'];
+    if (!req.user || !allowedRoles.includes(req.user.role)) {
+      throw new AppError('Доступ запрещен. Требуется роль администратора или руководящая роль', 403);
     }
-  }
 
-  static async createUser(req, res) {
-    try {
-      if (!req.user || req.user.role !== 'admin') {
-        return res.status(403).json({
-          success: false,
-          message: 'Доступ запрещен. Требуется роль администратора'
-        });
-      }
+    const { limit = 100, offset = 0, status = 'active' } = req.query;
+    const result = await UserService.getAllUsers(parseInt(limit), parseInt(offset), status);
+    
+    res.json({
+      success: true,
+      data: result.users,
+      pagination: result.pagination
+    });
+  });
 
-      const errors = validationResult(req);
-      if (!errors.isEmpty()) {
-        return res.status(400).json({ errors: errors.array() });
-      }
-
-      const userData = req.body;
-      const user = await UserService.createUser(userData);
-      
-      res.status(201).json({
-        success: true,
-        message: 'Пользователь создан успешно',
-        data: user
-      });
-    } catch (error) {
-      res.status(400).json({
-        success: false,
-        message: error.message
-      });
+  static createUser = asyncHandler(async (req, res) => {
+    if (!req.user || req.user.role !== 'admin') {
+      throw new AppError('Доступ запрещен. Требуется роль администратора', 403);
     }
-  }
 
-  static async updateUser(req, res) {
-    try {
-      if (!req.user || req.user.role !== 'admin') {
-        return res.status(403).json({
-          success: false,
-          message: 'Доступ запрещен. Требуется роль администратора'
-        });
-      }
-
-      const errors = validationResult(req);
-      if (!errors.isEmpty()) {
-        return res.status(400).json({ errors: errors.array() });
-      }
-
-      const { id } = req.params;
-      const userData = req.body;
-      const user = await UserService.updateUser(parseInt(id), userData);
-      
-      res.json({
-        success: true,
-        message: 'Пользователь обновлен успешно',
-        data: user
-      });
-    } catch (error) {
-      res.status(400).json({
-        success: false,
-        message: error.message
-      });
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      throw new AppError('Ошибка валидации', 400, errors.array());
     }
-  }
 
-  static async deleteUser(req, res) {
-    try {
-      if (!req.user || req.user.role !== 'admin') {
-        return res.status(403).json({
-          success: false,
-          message: 'Доступ запрещен. Требуется роль администратора'
-        });
-      }
+    const userData = req.body;
+    const user = await UserService.createUser(userData);
+    
+    res.status(201).json({
+      success: true,
+      message: 'Пользователь создан успешно',
+      data: user
+    });
+  });
 
-      const { id } = req.params;
-      const result = await UserService.deleteUser(parseInt(id));
-      
-      res.json({
-        success: true,
-        message: result.message
-      });
-    } catch (error) {
-      res.status(400).json({
-        success: false,
-        message: error.message
-      });
+  static updateUser = asyncHandler(async (req, res) => {
+    if (!req.user || req.user.role !== 'admin') {
+      throw new AppError('Доступ запрещен. Требуется роль администратора', 403);
     }
-  }
 
-  static async reactivateUser(req, res) {
-    try {
-      if (!req.user || req.user.role !== 'admin') {
-        return res.status(403).json({
-          success: false,
-          message: 'Доступ запрещен. Требуется роль администратора'
-        });
-      }
-
-      const { id } = req.params;
-      const result = await UserService.reactivateUser(parseInt(id));
-      
-      res.json({
-        success: true,
-        message: result.message
-      });
-    } catch (error) {
-      res.status(400).json({
-        success: false,
-        message: error.message
-      });
+    const errors = validationResult(req);
+    if (!errors.isEmpty()) {
+      throw new AppError('Ошибка валидации', 400, errors.array());
     }
-  }
 
-  static async getUsersByRole(req, res) {
-    try {
-      // Разрешаем доступ админам, директорам, инспекторам и мастерам
-      if (!req.user || !['admin', 'director', 'inspector', 'master'].includes(req.user.role)) {
-        return res.status(403).json({
-          success: false,
-          message: 'Доступ запрещен'
-        });
-      }
+    const { id } = req.params;
+    const userData = req.body;
+    const user = await UserService.updateUser(parseInt(id), userData);
+    
+    res.json({
+      success: true,
+      message: 'Пользователь обновлен успешно',
+      data: user
+    });
+  });
 
-      const { role } = req.params;
-      const users = await UserService.getUsersByRole(role);
-      
-      res.json({
-        success: true,
-        data: users
-      });
-    } catch (error) {
-      res.status(400).json({
-        success: false,
-        message: error.message
-      });
+  static deleteUser = asyncHandler(async (req, res) => {
+    if (!req.user || req.user.role !== 'admin') {
+      throw new AppError('Доступ запрещен. Требуется роль администратора', 403);
     }
-  }
 
-  static async resetPinCode(req, res) {
-    try {
-      if (!req.user || req.user.role !== 'admin') {
-        return res.status(403).json({
-          success: false,
-          message: 'Доступ запрещен. Требуется роль администратора'
-        });
-      }
+    const { id } = req.params;
+    const result = await UserService.deleteUser(parseInt(id));
+    
+    res.json({
+      success: true,
+      message: result.message
+    });
+  });
 
-      const { telegram_id } = req.body;
-      const result = await UserService.resetPinCode(telegram_id);
-      
-      res.json({
-        success: true,
-        message: 'PIN-код успешно сброшен',
-        data: result
-      });
-    } catch (error) {
-      res.status(400).json({
-        success: false,
-        message: error.message
-      });
+  static reactivateUser = asyncHandler(async (req, res) => {
+    if (!req.user || req.user.role !== 'admin') {
+      throw new AppError('Доступ запрещен. Требуется роль администратора', 403);
     }
-  }
 
-  static async refreshToken(req, res) {
-    try {
-      if (!req.user) {
-        return res.status(401).json({
-          success: false,
-          message: 'Не авторизован'
-        });
-      }
+    const { id } = req.params;
+    const result = await UserService.reactivateUser(parseInt(id));
+    
+    res.json({
+      success: true,
+      message: result.message
+    });
+  });
 
-      // Генерация нового токена
-      const token = generateToken({
-        id: req.user.id,
-        telegram_id: req.user.telegram_id,
-        first_name: req.user.first_name,
-        last_name: req.user.last_name,
-        role: req.user.role
-      });
-      
-      res.json({
-        success: true,
-        message: 'Токен обновлен',
-        data: { token }
-      });
-    } catch (error) {
-      res.status(500).json({
-        success: false,
-        message: 'Ошибка обновления токена'
-      });
+  static getUsersByRole = asyncHandler(async (req, res) => {
+    if (!req.user || !['admin', 'director', 'inspector', 'master'].includes(req.user.role)) {
+      throw new AppError('Доступ запрещен', 403);
     }
-  }
+
+    const { role } = req.params;
+    const users = await UserService.getUsersByRole(role);
+    
+    res.json({
+      success: true,
+      data: users
+    });
+  });
+
+  static resetPinCode = asyncHandler(async (req, res) => {
+    if (!req.user || req.user.role !== 'admin') {
+      throw new AppError('Доступ запрещен. Требуется роль администратора', 403);
+    }
+
+    const { telegram_id } = req.body;
+    const result = await UserService.resetPinCode(telegram_id);
+    
+    res.json({
+      success: true,
+      message: 'PIN-код успешно сброшен',
+      data: result
+    });
+  });
+
+  static refreshToken = asyncHandler(async (req, res) => {
+    if (!req.user) {
+      throw new AppError('Не авторизован', 401);
+    }
+
+    const token = generateToken({
+      id: req.user.id,
+      telegram_id: req.user.telegram_id,
+      first_name: req.user.first_name,
+      last_name: req.user.last_name,
+      role: req.user.role
+    });
+    
+    res.json({
+      success: true,
+      message: 'Токен обновлен',
+      data: { token }
+    });
+  });
 }
 
 module.exports = UserController;

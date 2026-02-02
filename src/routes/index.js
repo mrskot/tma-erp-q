@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 
 // Импорт маршрутов
+const healthRoutes = require('./healthRoutes');
 const userRoutes = require('./userRoutes');
 const lotRoutes = require('./lotRoutes');
 const productRoutes = require('./productRoutes');
@@ -11,6 +12,7 @@ const SearchController = require('../controllers/searchController');
 const { authenticateJWT } = require('../middleware/auth');
 
 // Подключение маршрутов
+router.use('/', healthRoutes);
 router.use('/users', userRoutes);
 router.use('/lots', lotRoutes);
 router.use('/products', productRoutes);

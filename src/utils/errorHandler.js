@@ -1,39 +1,17 @@
-// src/utils/errorHandler.js
-
-/**
- * Кастомный класс для обработки операционных ошибок
- */
+// Файл: src/utils/errorHandler.js
 class AppError extends Error {
-  constructor(message, statusCode, details = null) {
-    super(message);
-    this.statusCode = statusCode;
-    this.isOperational = true; // Отличаем операционные ошибки от программных
-    this.details = details; // Дополнительные детали, например, ошибки валидации
-
-    Error.captureStackTrace(this, this.constructor);
-  }
-}
-
 /**
- * Глобальный middleware для обработки ошибок
- */
-const globalErrorHandler = (err, req, res, next) => {
-  err.statusCode = err.statusCode || 500;
-  err.status = err.status || 'error';
-
-  console.error('💥 ГЛОБАЛЬНАЯ ОШИБКА:', err);
-
-  res.status(err.statusCode).json({
-    success: false,
-    status: err.status,
-    message: err.message,
-    ...(err.details && { details: err.details }), // Включаем детали, если они есть
-    ...(process.env.NODE_ENV === 'development' && { stack: err.stack }), // Включаем стек в режиме разработки
-  });
-};
-
-
-module.exports = {
-  AppError,
-  globalErrorHandler,
-};
+* @param {string} message - Сообщение об ошибке.
+* @param {number} statusCode - HTTP статус код.
+* @param {Array} [errors] - Массив дополнительных ошибок (например, от валидатора).
+*/
+constructor(message, statusCode, errors = []) {
+super(message);
+this.statusCode = statusCode;
+this.status = `${statusCode}`.startsWith('4') ? 'fail' : 'error';
+this.isOperational = true; // Отличаем операционные ошибки от программных
+this.errors = errors;
+Error.captureStackTrace(this, this.constructor);
+}
+}
+module.exports = { AppError };
