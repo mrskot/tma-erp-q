@@ -1,6 +1,9 @@
 // public/js/components/DiscrepancyModal.js
 
-class DiscrepancyModal {
+import { api } from '../api.js';
+import { authManager } from '../auth.js';
+
+export class DiscrepancyModal {
     constructor() {
         this.modal = document.getElementById('discrepancy-modal');
         if (!this.modal) {
@@ -39,7 +42,7 @@ class DiscrepancyModal {
     async fetchDataIfNeeded() {
         try {
             // Загружаем всех пользователей, чтобы были и мастера, и рабочие
-            const response = await window.TMA_API.getUsers('active');
+            const response = await api.getUsers('active');
             this.usersCache = response.data || (Array.isArray(response) ? response : []);
             return true;
         } catch (error) {
@@ -93,7 +96,7 @@ class DiscrepancyModal {
         await this.fetchDataIfNeeded();
         this.populateResponsibleSelect();
 
-        const user = window.AuthManager.getUser();
+        const user = authManager.getUser();
         const masterFields = document.getElementById('master-action-fields');
         const submitButton = this.form.querySelector('button[type="submit"]');
         const actionsDiv = document.getElementById('discrepancy-actions');
@@ -118,7 +121,7 @@ class DiscrepancyModal {
             this.title.style.fontSize = user.role === 'master' ? '16px' : '18px';
 
             // В режиме редактирования показываем статус и срок ТОЛЬКО для Контролера/Админа
-            const isInspector = user.role === 'inspector' || user.role === 'admin' || user.role === 'director';
+        const isInspector = user.role === 'inspector' || authManager.isAdmin() || user.role === 'director';
             if (statusGroup) statusGroup.style.display = isInspector ? 'grid' : 'none';
             if (dueDateGroup) dueDateGroup.style.display = isInspector ? 'block' : 'none';
 
@@ -142,7 +145,7 @@ class DiscrepancyModal {
             if (actionsDiv) actionsDiv.innerHTML = '';
 
             // --- ЛОГИКА ДЛЯ МАСТЕРА ---
-            if (user.role === 'master' && !window.AuthManager.isAdmin()) {
+            if (user.role === 'master' && !authManager.isAdmin()) {
                 masterFields.style.display = 'block';
                 this.form.elements.fix_photo_url.value = discrepancyData.fix_photo_url || '';
                 this.form.elements.special_opinion.value = discrepancyData.special_opinion || '';
@@ -159,7 +162,7 @@ class DiscrepancyModal {
                 }
             } 
             // --- ЛОГИКА ДЛЯ КОНТРОЛЕРА / АДМИНА ---
-            else if (user.role === 'inspector' || user.role === 'admin' || user.role === 'director') {
+            else if (user.role === 'inspector' || authManager.isAdmin() || user.role === 'director') {
                 masterFields.style.display = 'block'; // Чтобы видеть, что написал мастер
                 this.form.elements.fix_photo_url.value = discrepancyData.fix_photo_url || '';
                 this.form.elements.special_opinion.value = discrepancyData.special_opinion || '';
@@ -205,7 +208,7 @@ class DiscrepancyModal {
             // АВТОПОДСТАНОВКА ОТВЕТСТВЕННОГО (Мастера заявки)
             if (applicationId) {
                 try {
-                    const appRes = await window.TMA_API.getApplicationById(applicationId);
+                    const appRes = await api.getApplicationById(applicationId);
                     if (appRes.success && appRes.data.master_id) {
                         this.form.elements.responsible_id.value = appRes.data.master_id;
                         
@@ -377,7 +380,7 @@ class DiscrepancyModal {
         };
 
         try {
-            const response = await window.TMA_API.updateDiscrepancyStatus(id, payload);
+            const response = await api.updateDiscrepancyStatus(id, payload);
             if (response.success) {
                 this.hide();
                 if (this.onSave) await this.onSave(response.data);
@@ -404,7 +407,6 @@ class DiscrepancyModal {
         const fixPhoto = this.form.elements.fix_photo_url.value;
         const opinion = this.form.elements.special_opinion.value;
 
-        // Проверяем режим из данных, которые мы получили при открытии модалки
         const isLite = this.currentDiscrepancyData && this.currentDiscrepancyData.inspection_mode === 'lite';
 
         if (action === 'resolved' && !isLite && !fixPhoto) {
@@ -432,7 +434,7 @@ class DiscrepancyModal {
         };
 
         try {
-            const response = await window.TMA_API.updateDiscrepancyStatus(id, payload);
+            const response = await api.updateDiscrepancyStatus(id, payload);
             if (response.success) {
                 this.hide();
                 if (this.onSave) await this.onSave(response.data);

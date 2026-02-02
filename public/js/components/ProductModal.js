@@ -1,198 +1,50 @@
-class ProductModal {
+// public/js/components/ProductModal.js
+import { BaseModal } from './BaseModal.js';
+
+export class ProductModal extends BaseModal {
     constructor() {
-        this.modal = document.getElementById('product-modal');
-        if (!this.modal) {
-            console.error('ProductModal HTML not found');
-            return;
-        }
-        this.form = document.getElementById('product-form');
-        this.title = this.modal.querySelector('.modal-title');
-        this.closeButton = this.modal.querySelector('.close');
-
-        // Новые поля
-        this.lotSelect = document.getElementById('product-lot-id');
-        this.inspectorSelect = document.getElementById('product-default-inspector-id');
-        this.inspectionTimeInput = document.getElementById('product-inspection-time');
-        this.inspectionModeSelect = document.getElementById('product-inspection-mode');
-        
-        // Управление чек-листом
-        this.checklistContainer = document.getElementById('product-checklist-container');
-        this.addChecklistItemBtn = document.getElementById('add-checklist-item-btn');
-
-        this.onSave = null;
-        this.editMode = false;
-        this.productId = null;
-
-        this.form.addEventListener('submit', (e) => this.handleSubmit(e));
-        this.closeButton.addEventListener('click', () => this.hide());
-        this.addChecklistItemBtn.addEventListener('click', () => this.addChecklistItem());
+        super('product-modal', 'product-form');
     }
 
-    // --- Методы для заполнения выпадающих списков ---
-    
-    populateLots(lots = []) {
-        const currentValue = this.lotSelect.value;
-        this.lotSelect.innerHTML = '<option value="">Выберите участок</option>';
-        lots.forEach(lot => {
-            if (lot.is_active) {
-                const option = document.createElement('option');
-                option.value = lot.id;
-                option.textContent = `${lot.name} (${lot.code})`;
-                this.lotSelect.appendChild(option);
-            }
-        });
-        this.lotSelect.value = currentValue;
-    }
-
-    populateInspectors(inspectors = []) {
-        const currentValue = this.inspectorSelect.value;
-        this.inspectorSelect.innerHTML = '<option value="">Не назначен</option>';
-        inspectors.forEach(inspector => {
-            const option = document.createElement('option');
-            option.value = inspector.id;
-            option.textContent = `${inspector.first_name} ${inspector.last_name}`;
-            this.inspectorSelect.appendChild(option);
-        });
-        this.inspectorSelect.value = currentValue;
-    }
-
-    // --- Методы для управления чек-листом ---
-
-    renderChecklist(checklistData = []) {
-        this.checklistContainer.innerHTML = '';
-        let checklist = checklistData;
-
-        // NEW: Если данные пришли в виде JSON-строки, парсим их.
-        if (typeof checklist === 'string' && checklist.trim().startsWith('[')) {
-            try {
-                checklist = JSON.parse(checklist);
-            } catch (e) {
-                console.error('Ошибка парсинга JSON в чек-листе:', e);
-                checklist = []; // В случае ошибки, показываем пустой список
-            }
-        }
-
-        if (Array.isArray(checklist)) {
-            checklist.forEach(item => {
-                const taskText = typeof item === 'string' ? item : (item.task || '');
-                this.addChecklistItem(taskText);
-            });
-        }
-    }
-
-    addChecklistItem(task = '') {
-        const itemDiv = document.createElement('div');
-        itemDiv.className = 'checklist-item';
-
-        const input = document.createElement('input');
-        input.type = 'text';
-        input.className = 'checklist-item-input';
-        input.placeholder = 'Текст пункта...';
-        input.value = task;
-
-        const removeBtn = document.createElement('span');
-        removeBtn.className = 'checklist-item-remove';
-        removeBtn.innerHTML = '&times;';
-        removeBtn.onclick = () => itemDiv.remove();
-
-        itemDiv.appendChild(input);
-        itemDiv.appendChild(removeBtn);
-        this.checklistContainer.appendChild(itemDiv);
-    }
-    
-    getChecklistFromDOM() {
-        const items = [];
-        this.checklistContainer.querySelectorAll('.checklist-item-input').forEach(input => {
-            const task = input.value.trim();
-            if (task) {
-
-                // СОХРАНЯЕМ КАК СТРОКУ, а не объект
-                items.push(task);
-            }
-        });
-        return items;
-    }
-
-    // --- Основные методы модального окна ---
-
-    show({ mode = 'create', productData = null, lots = [], inspectors = [], onSave = () => {} }) {
-        this.onSave = onSave;
-        this.editMode = mode === 'edit';
-        this.form.reset();
-        this.productId = productData ? productData.id : null;
-        
-        this.title.textContent = this.editMode ? 'Редактировать изделие' : 'Создать изделие';
-        
-        this.populateLots(lots);
-        this.populateInspectors(inspectors);
-
-        if (this.editMode && productData) {
-            // Заполнение основных полей
-            this.form.elements.name.value = productData.name || '';
-            this.form.elements.type.value = productData.product_type || 'finished';
-            this.lotSelect.value = productData.lot_id || '';
-            
-            // Заполнение новых полей
-            this.inspectorSelect.value = productData.default_inspector_id || '';
-            this.inspectionTimeInput.value = productData.inspection_time_minutes || '';
-            this.inspectionModeSelect.value = productData.inspection_mode || 'lite';
-
-            // Рендеринг чек-листа
-            this.renderChecklist(productData.checklist);
-        } else {
-            // Очистка для нового изделия
-            this.renderChecklist([]);
-        }
-
-        this.modal.style.display = 'block';
-    }
-
-
-
-    hide() {
-        this.modal.style.display = 'none';
-        this.form.reset();
-        this.checklistContainer.innerHTML = ''; // Очистка чек-листа
-    }
-
+    // Переопределяем handleSubmit для обработки checklist
     async handleSubmit(event) {
         event.preventDefault();
+        const formData = new FormData(this.form);
+        const data = Object.fromEntries(formData.entries());
 
-        const finalData = {
-            name: this.form.elements.name.value.trim(),
-            product_type: this.form.elements.type.value,
-            lot_id: this.lotSelect.value ? parseInt(this.lotSelect.value) : null,
-            default_inspector_id: this.inspectorSelect.value ? parseInt(this.inspectorSelect.value) : null,
-            inspection_time_minutes: this.inspectionTimeInput.value ? parseInt(this.inspectionTimeInput.value) : null,
-            inspection_mode: this.inspectionModeSelect.value,
-            checklist: this.getChecklistFromDOM()
-        };
-
-        // Добавляем ID только если мы в режиме редактирования
-        if (this.editMode && this.productId) {
-            finalData.id = parseInt(this.productId, 10);
-        }
+        // Преобразуем textarea в массив строк
+        data.checklist = data.checklist.split('\n').map(item => item.trim()).filter(item => item);
         
-        if (!finalData.name) {
-            alert('Название изделия не может быть пустым.');
-            return;
-        }
-
+        const submitButton = this.form.querySelector('button[type="submit"]');
+        submitButton.disabled = true;
         try {
-            const submitButton = this.form.querySelector('button[type="submit"]');
-            submitButton.disabled = true;
-            submitButton.textContent = 'Сохранение...';
-
-            if (this.onSave) {
-                 await this.onSave(finalData);
-            }
-        } catch (error) {
-            console.error('Ошибка при сохранении изделия:', error);
-            alert(`Не удалось сохранить изделие. ${error.message}`);
+            if (this.onSave) await this.onSave(data);
         } finally {
-            const submitButton = this.form.querySelector('button[type="submit"]');
             submitButton.disabled = false;
-            submitButton.textContent = 'Сохранить';
+        }
+    }
+
+    show({ mode, productData = null, lots = [], onSave }) {
+        super.show({ onSave });
+        const title = this.modalElement.querySelector('.modal-title');
+
+        const lotSelect = this.form.elements.lot_id;
+        lotSelect.innerHTML = '<option value="">Выберите участок</option>';
+        lots.forEach(lot => {
+            lotSelect.innerHTML += `<option value="${lot.id}">${lot.name}</option>`;
+        });
+
+        if (mode === 'edit' && productData) {
+            title.textContent = 'Редактировать изделие';
+            Object.keys(productData).forEach(key => {
+                if (key === 'checklist' && Array.isArray(productData[key])) {
+                    this.form.elements[key].value = productData[key].join('\n');
+                } else if (this.form.elements[key]) {
+                    this.form.elements[key].value = productData[key] === null ? '' : productData[key];
+                }
+            });
+        } else {
+            title.textContent = 'Создать изделие';
         }
     }
 }

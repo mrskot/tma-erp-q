@@ -1,6 +1,9 @@
 // public/js/components/ApplicationModal.js
 
-class ApplicationModal {
+import { api } from '../api.js';
+import { authManager } from '../auth.js';
+
+export class ApplicationModal {
     constructor() {
         this.modal = document.getElementById('application-modal');
         if (!this.modal) {
@@ -131,19 +134,19 @@ class ApplicationModal {
         try {
             // Загружаем данные только если кэш пуст
             if (this.productsCache.length === 0) {
-                const response = await window.TMA_API.getProducts();
+                const response = await api.getProducts();
                 // Handle both direct array and wrapped response
                 this.productsCache = response.data || (Array.isArray(response) ? response : []);
                 console.log('Products loaded:', this.productsCache);
             }
             if (this.mastersCache.length === 0) {
-                const response = await window.TMA_API.getUsersByRole('master');
+                const response = await api.getUsersByRole('master');
                 // Handle both direct array and wrapped response
                 this.mastersCache = response.data || (Array.isArray(response) ? response : []);
                 console.log('Masters loaded:', this.mastersCache);
             }
             if (this.lotsCache.length === 0) {
-                const response = await window.TMA_API.getLotsWithMasters('active');
+                const response = await api.getLotsWithMasters('active');
                 console.log('Raw lots data:', response);
                 // Handle both direct array and wrapped response
                 this.lotsCache = response.data || (Array.isArray(response) ? response : []);
@@ -169,7 +172,7 @@ class ApplicationModal {
         
         this.title.textContent = 'Создать партию заявок';
         
-        const currentUser = window.AuthManager.getUser();
+        const currentUser = authManager.getUser();
         const isMaster = currentUser && currentUser.role === 'master';
 
         // 1. Заполняем селекты с изделиями и мастерами

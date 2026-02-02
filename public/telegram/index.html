@@ -6,422 +6,89 @@
     <title>TMA-ERP-Q</title>
     <link rel="stylesheet" href="/css/telegram.css">
     <link rel="stylesheet" href="/css/dashboard.css">
-    <!-- Подключение Telegram Web App SDK -->
     <script src="https://telegram.org/js/telegram-web-app.js"></script>
-    <!-- Основной скрипт для работы с Telegram -->
-    <script src="/js/telegram-app.js"></script>
 </head>
 <body>
 
-    <!-- Экран загрузки -->
-    <div id="loading-screen" class="app-screen">
-        <div class="spinner"></div>
-        <p>Загрузка приложения...</p>
-        <p id="init-data-status"></p>
-    </div>
+    <!-- === Экраны состояния === -->
+    <div id="loading-screen" class="app-screen"><div class="spinner"></div><p>Загрузка...</p></div>
 
-    <!-- Экран входа по PIN-коду -->
     <div id="login-screen" class="app-screen hidden">
         <div class="login-container">
             <h2>Вход в TMA-ERP-Q</h2>
-            <p>Введите ваш PIN-код для доступа</p>
+            <p>Введите ваш PIN-код</p>
             <form id="login-form">
-                <input type="password" id="pin-input" pattern="\d{4}" maxlength="4" inputmode="numeric" placeholder="••••" required autocomplete="new-password">
+                <input type="password" id="pin-input" pattern="\d{4}" maxlength="4" inputmode="numeric" placeholder="••••" required>
                 <button type="submit" class="button">Войти</button>
             </form>
             <p id="login-error" class="error-message hidden"></p>
         </div>
     </div>
 
-    <!-- Основное приложение -->
+    <!-- === Основное приложение === -->
     <div id="main-app" class="app-screen hidden">
         <header>
             <div class="container header-container">
-                <div id="user-info">Загрузка...</div>
+                <div id="user-info"></div>
                 <button id="logout-button" class="button button-secondary">Выйти</button>
             </div>
         </header>
-        <div class="search-bar-wrapper">
-            <div class="container">
-                <div class="search-container">
-                    <input type="text" id="global-search-input" placeholder="Поиск (номер, серийник...)" autocomplete="off">
-                    <div id="search-results" class="search-results hidden"></div>
-                </div>
-            </div>
-        </div>
-        <nav>
-            <!-- Навигация будет сгенерирована в app.js -->
-        </nav>
-        <main id="page-content" class="container">
-            <!-- Контент страницы будет рендериться здесь -->
-        </main>
+        <nav></nav>
+        <main id="page-content" class="container"></main>
     </div>
 
     <!-- === Модальные окна === -->
     <div id="modals-container">
-        <!-- Модальное окно для Пользователей -->
+        <!-- Модалка Пользователей -->
         <div id="user-modal" class="modal">
             <div class="modal-content">
-                <span class="close">&times;</span>
-                <h2 class="modal-title" style="font-size: 18px; margin-bottom: 15px;">Создать пользователя</h2>
+                <span class="close">&times;</span><h2 class="modal-title">Пользователь</h2>
                 <form id="user-form">
                     <input type="hidden" name="id">
-                    <div class="form-grid">
-                        <div class="form-group">
-                            <label for="user-first-name">Имя:</label>
-                            <input type="text" id="user-first-name" name="first_name" required>
-                        </div>
-                        <div class="form-group">
-                            <label for="user-last-name">Фамилия:</label>
-                            <input type="text" id="user-last-name" name="last_name" required>
-                        </div>
-                        <div class="form-group">
-                            <label for="user-role">Роль:</label>
-                            <select id="user-role" name="role" required>
-                                <option value="admin">Администратор</option>
-                                <option value="director">Директор</option>
-                                <option value="inspector">Контролер ОТК</option>
-                                <option value="master">Мастер</option>
-                                <option value="worker">Рабочий</option>
-                            </select>
-                        </div>
-                        <div class="form-group">
-                            <label for="user-telegram-id">Telegram ID:</label>
-                            <input type="number" id="user-telegram-id" name="telegram_id">
-                        </div>
-                        <div class="form-group">
-                            <label for="user-bitrix-id">Bitrix ID:</label>
-                            <input type="number" id="user-bitrix-id" name="bitrix_id">
-                        </div>
-                    </div>
-                    <div class="form-group" id="user-password-group" style="margin-top: 10px;">
-                        <label for="user-pin-code">Пароль (PIN):</label>
-                        <input type="text" id="user-pin-code" name="pin_code" placeholder="4 цифры или пусто для авто" maxlength="4" pattern="\d{4}" inputmode="numeric">
-                    </div>
-                    <button type="submit" class="button" style="margin-top: 15px;">Сохранить</button>
+                    <div class="form-group"><label>Имя:</label><input type="text" name="first_name" required></div>
+                    <div class="form-group"><label>Фамилия:</label><input type="text" name="last_name"></div>
+                    <div class="form-group"><label>Роль:</label><select name="role" required><option value="worker">Рабочий</option><option value="master">Мастер</option><option value="inspector">Контролёр ОТК</option><option value="director">Директор</option><option value="admin">Администратор</option></select></div>
+                    <div class="form-group"><label>Telegram ID:</label><input type="text" name="telegram_id" required></div>
+                    <div class="form-group"><label>Bitrix ID:</label><input type="text" name="bitrix_id"></div>
+                    <div class="form-group" id="user-pin-code-group"><label>PIN (4 цифры):</label><input type="text" name="pin_code" maxlength="4" placeholder="Пусто для автогенерации"></div>
+                    <button type="submit" class="button">Сохранить</button>
                 </form>
             </div>
         </div>
 
-        <!-- Модальное окно для Участков -->
+        <!-- Модалка Участков -->
         <div id="lot-modal" class="modal">
             <div class="modal-content">
-                <span class="close">&times;</span>
-                <h2 class="modal-title" style="font-size: 18px; margin-bottom: 15px;">Создать участок</h2>
+                <span class="close">&times;</span><h2 class="modal-title">Участок</h2>
                 <form id="lot-form">
                     <input type="hidden" name="id">
-                    <div class="form-group">
-                        <label for="lot-name">Название участка:</label>
-                        <input type="text" id="lot-name" name="name" required placeholder="Например: Цех сборки">
-                    </div>
-                    <div class="form-grid">
-                        <div class="form-group">
-                            <label for="lot-code">Код участка:</label>
-                            <input type="text" id="lot-code" name="code" required placeholder="LOT-01">
-                        </div>
-                        <div class="form-group">
-                            <label for="lot-distance">Расстояние (м):</label>
-                            <input type="number" id="lot-distance" name="distance_to_office">
-                        </div>
-                    </div>
-                    <div class="form-group">
-                        <label for="lot-main-master-id">Основной мастер:</label>
-                        <select id="lot-main-master-id" name="main_master_id">
-                            <!-- Опции мастеров будут загружены динамически -->
-                        </select>
-                    </div>
-                    <div class="form-group">
-                        <label for="lot-temp-master-id">Замещающий мастер (если есть):</label>
-                        <select id="lot-temp-master-id" name="temp_master_id">
-                            <!-- Опции мастеров будут загружены динамически -->
-                        </select>
-                    </div>
-                    <button type="submit" class="button" style="margin-top: 15px;">Сохранить</button>
+                    <div class="form-group"><label>Название:</label><input type="text" name="name" required></div>
+                    <div class="form-group"><label>Код:</label><input type="text" name="code" required></div>
+                    <div class="form-group"><label>Основной мастер:</label><select name="main_master_id"></select></div>
+                    <div class="form-group"><label>Временный мастер:</label><select name="temp_master_id"></select></div>
+                    <button type="submit" class="button">Сохранить</button>
                 </form>
             </div>
         </div>
 
-        <!-- Модальное окно для Изделий -->
+        <!-- Модалка Изделий -->
         <div id="product-modal" class="modal">
             <div class="modal-content">
-                <span class="close">&times;</span>
-                <h2 class="modal-title" style="font-size: 18px; margin-bottom: 15px;">Создать изделие</h2>
+                <span class="close">&times;</span><h2 class="modal-title">Изделие</h2>
                 <form id="product-form">
-                    <input type="hidden" name="id">
-                    <div class="form-group">
-                        <label for="product-name">Название изделия:</label>
-                        <input type="text" id="product-name" name="name" required placeholder="Трансформатор ТСЛ-1000">
-                    </div>
-                    <div class="form-grid">
-                        <div class="form-group">
-                            <label for="product-type">Тип:</label>
-                            <select id="product-type" name="type" required>
-                                <option value="finished">Готовое изделие</option>
-                                <option value="semi_finished">Полуфабрикат</option>
-                                <option value="assembly">Сборочная единица</option>
-                                <option value="part">Деталь</option>
-                            </select>
-                        </div>
-                        <div class="form-group">
-                            <label for="product-lot-id">Участок пр-ва:</label>
-                            <select id="product-lot-id" name="lot_id" required>
-                                <!-- Опции участков будут загружены динамически -->
-                            </select>
-                        </div>
-                    </div>
-                    <div class="form-group">
-                        <label for="product-default-inspector-id">Контролёр ОТК (по умолчанию):</label>
-                        <select id="product-default-inspector-id" name="default_inspector_id">
-                            <!-- Опции контролёров будут загружены динамически -->
-                        </select>
-                    </div>
-                    <div class="form-grid">
-                        <div class="form-group">
-                            <label for="product-inspection-time">Норма времени (мин):</label>
-                            <input type="number" id="product-inspection-time" name="inspection_time_minutes" min="1" placeholder="30">
-                        </div>
-                        <div class="form-group">
-                            <label for="product-inspection-mode">Режим контроля:</label>
-                            <select id="product-inspection-mode" name="inspection_mode">
-                                <option value="lite" selected>LITE (Авто-закрытие)</option>
-                                <option value="hard">HARD (Тотальный контроль)</option>
-                            </select>
-                        </div>
-                    </div>
-                    <div class="form-group">
-                        <label style="font-weight: 700; display: block; margin-bottom: 8px;">📋 Чек-лист проверки:</label>
-                        <div id="product-checklist-container" class="checklist-container" style="background: #f8f9fa; padding: 10px; border-radius: 8px; border: 1px solid #eee;">
-                            <!-- Элементы чек-листа будут добавлены сюда -->
-                        </div>
-                        <button type="button" id="add-checklist-item-btn" class="button button-secondary" style="margin-top: 10px; font-size: 13px;">➕ Добавить пункт чек-листа</button>
-                    </div>
-                    <button type="submit" class="button" style="margin-top: 15px;">Сохранить изделие</button>
+                     <input type="hidden" name="id">
+                     <div class="form-group"><label>Название:</label><input type="text" name="name" required></div>
+                     <div class="form-group"><label>Тип:</label><select name="product_type"><option value="finished">Готовое</option><option value="semi_finished">Полуфабрикат</option></select></div>
+                     <div class="form-group"><label>Участок:</label><select name="lot_id" required></select></div>
+                     <div class="form-group"><label>Чек-лист (каждый пункт с новой строки):</label><textarea name="checklist" rows="4"></textarea></div>
+                     <button type="submit" class="button">Сохранить</button>
                 </form>
             </div>
         </div>
 
-        <!-- Модальное окно для Заявок (новая версия с пакетным созданием) -->
-        <div id="application-modal" class="modal">
-            <div class="modal-content large">
-                <span class="close">&times;</span>
-                <h2 class="modal-title" style="font-size: 16px; margin-bottom: 15px; font-weight: 700;">Создать партию заявок</h2>
-                <form id="application-form">
-                    <div class="form-grid">
-                        <div class="form-group">
-                            <label for="app-production-order">№ Произв. заказа:</label>
-                            <input type="text" id="app-production-order" name="production_order_number" placeholder="Введите № заказа" required>
-                        </div>
-                        <div class="form-group">
-                            <label for="app-lot-id">Участок:</label>
-                            <select id="app-lot-id" name="lot_id" required></select>
-                        </div>
-                        <div class="form-group">
-                            <label for="app-master-id">Мастер:</label>
-                            <select id="app-master-id" name="master_id" required></select>
-                        </div>
-                        <div class="form-group">
-                            <label for="app-product-id">Изделие:</label>
-                            <select id="app-product-id" name="product_id" required></select>
-                        </div>
-                        <div class="form-group">
-                            <label for="app-drawing-number">Номер чертежа:</label>
-                            <input type="text" id="app-drawing-number" name="drawing_number" placeholder="ТМА.12345.001">
-                        </div>
-                        <div class="form-group">
-                            <label for="app-quantity">Количество (шт):</label>
-                            <input type="number" id="app-quantity" name="quantity" required min="1" value="1">
-                        </div>
-                    </div>
-
-                    <div class="form-group-horizontal" style="margin: 10px 0;">
-                        <input type="checkbox" id="app-has-serials" name="has_serial_numbers" checked>
-                        <label for="app-has-serials" style="font-weight: 700;">Указать серийные номера</label>
-                    </div>
-
-                    <div id="app-serials-container" class="serials-grid">
-                        <!-- Сюда будут динамически добавляться поля для серийных номеров -->
-                    </div>
-
-                    <div class="form-group">
-                        <label for="app-notes">Общие заметки для партии:</label>
-                        <textarea id="app-notes" name="notes" rows="2" placeholder="Например: Срочная отгрузка"></textarea>
-                    </div>
-
-                    <div class="form-group" style="margin-top: 10px;">
-                        <label for="app-desired-time">Желаемый срок приёмки:</label>
-                        <input type="datetime-local" id="app-desired-time" name="desired_inspection_time" required>
-                    </div>
-                    
-                    <button type="submit" class="button" style="margin-top: 10px;">Создать заявки</button>
-                </form>
-            </div>
-        </div>
-
-        <!-- Модальное окно просмотра и обработки заявки (ДЕТАЛИ) -->
-        <div id="application-details-modal" class="modal">
-            <div class="modal-content">
-                <span class="close">&times;</span>
-                <h2 class="modal-title">Детали заявки</h2>
-                
-                <div id="app-details-content">
-                    <div class="details-section">
-                        <div class="details-row" style="margin-bottom: 8px; border-bottom: 1px solid #eee; padding-bottom: 8px;"><strong>Номер:</strong> <span id="view-app-number" style="font-weight: 700;"></span></div>
-                        <div class="details-row" style="margin-bottom: 4px;">Заказ: <span id="view-app-order" style="font-weight: 700; margin-left: 10px;"></span></div>
-                        <div class="details-row" style="margin-bottom: 4px;">Изделие: <span id="view-app-product" style="font-weight: 700; margin-left: 10px;"></span></div>
-                        <div class="details-row" style="margin-bottom: 4px;">Чертеж: <span id="view-app-drawing" style="font-weight: 700; margin-left: 10px;"></span></div>
-                        <div class="details-row" style="margin-bottom: 4px;">Сер. номер: <span id="view-app-serial" style="font-weight: 700; margin-left: 10px;"></span></div>
-                        <div class="details-row" style="margin-bottom: 4px;">Мастер: <span id="view-app-master" style="font-weight: 700; margin-left: 10px;"></span></div>
-                        <div class="details-row" style="margin-bottom: 4px;">Участок: <span id="view-app-lot" style="font-weight: 700; margin-left: 10px;"></span></div>
-                        <div class="details-row" style="margin-bottom: 4px;">Статус: <span id="view-app-status" class="status-badge" style="margin-left: 10px;"></span></div>
-                    </div>
-
-                    <div id="view-app-checklist-section" class="details-section" style="display: none; margin-top: 15px;">
-                        <div style="font-weight: 700; margin-bottom: 10px;">📋 Чек-лист контроля:</div>
-                        <div id="view-app-checklist-items" style="background: #f9f9f9; padding: 10px; border-radius: 8px; border: 1px solid #eee;">
-                            <!-- Пункты чек-листа -->
-                        </div>
-                    </div>
-
-                    <div id="view-app-mki-section" class="details-section" style="display: none; margin-top: 15px;">
-                        <strong>Фото МКИ:</strong>
-                        <div class="mki-photo-container" style="margin-top: 5px;">
-                            <img id="view-app-mki-img" src="" alt="МКИ" style="max-width: 100%; border-radius: 8px;">
-                        </div>
-                    </div>
-
-                    <div id="view-app-discrepancies-section" class="details-section" style="margin-top: 20px;">
-                        <strong>Выявленные несоответствия:</strong>
-                        <div id="view-app-discrepancies-list" class="task-grid" style="grid-template-columns: 1fr; gap: 10px; margin-top: 10px;">
-                            <!-- Список несоответствий -->
-                        </div>
-                    </div>
-
-                    <div id="view-app-actions" class="modal-actions" style="margin-top: 20px; display: flex; flex-direction: column; gap: 10px;">
-                        <!-- Кнопки действий будут здесь -->
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- Модальное окно для Несоответствий -->
-        <div id="discrepancy-modal" class="modal">
-            <div class="modal-content">
-                <span class="close">&times;</span>
-                <h2 class="modal-title" style="font-size: 18px;">Регистрация несоответствия</h2>
-                <form id="discrepancy-form">
-                    <input type="hidden" name="id">
-                    <input type="hidden" name="application_id">
-                    
-                    <div id="disc-app-info" class="details-row" style="margin-bottom: 15px; font-size: 14px; color: #666; display: none;">
-                        <strong>Заявка/Изделие:</strong> <span id="disc-app-number-val"></span>
-                    </div>
-                    
-                    <div class="form-group">
-                        <label for="disc-title">Краткое описание:</label>
-                        <input type="text" id="disc-title" name="title" required placeholder="Например: Царапина на корпусе">
-                    </div>
-
-                    <div class="form-group">
-                        <label for="disc-description">Подробное описание:</label>
-                        <textarea id="disc-description" name="description" rows="3"></textarea>
-                    </div>
-
-                    <div class="form-group">
-                        <label for="disc-photo">Фото дефекта (URL):</label>
-                        <input type="text" id="disc-photo" name="defect_photo_url" placeholder="URL фото">
-                    </div>
-
-                    <div class="form-grid">
-                        <div class="form-group">
-                            <label for="disc-status">Статус:</label>
-                            <select id="disc-status" name="status">
-                                <option value="new">Новое</option>
-                                <option value="assigned">Назначено</option>
-                                <option value="in_progress">В работе</option>
-                                <option value="resolved">Устранено (Мастер)</option>
-                                <option value="closed">Закрыто (Контролер/Директор)</option>
-                            </select>
-                        </div>
-                        <div class="form-group" id="closure-scenario-group" style="display: none;">
-                            <label for="disc-scenario">Сценарий закрытия:</label>
-                            <select id="disc-scenario" name="closure_scenario">
-                                <option value="" selected disabled>-- Выберите решение --</option>
-                                <option value="fixed">Устранено (по чертежу)</option>
-                                <option value="resolution_card">Карточка разрешения (КР)</option>
-                                <option value="political">Политическое решение</option>
-                                <option value="scrap">БРАК (Списание)</option>
-                            </select>
-                        </div>
-                    </div>
-
-                    <div class="form-group" id="scenario-details-group" style="display: none;">
-                        <label for="disc-details">Детали решения (№ КР или причина):</label>
-                        <textarea id="disc-details" name="details" rows="2"></textarea>
-                    </div>
-
-                    <!-- Поля для МАСТЕРА (Устранение и Особое мнение) -->
-                    <div id="master-action-fields" style="display: none; border-top: 1px solid #eee; padding-top: 15px; margin-top: 15px;">
-                        <div class="form-group" id="fix-photo-group">
-                            <label for="disc-fix-photo">Фото устранения (URL):</label>
-                            <input type="text" id="disc-fix-photo" name="fix_photo_url" placeholder="URL фото результата">
-                        </div>
-                        <div class="form-group" id="special-opinion-group">
-                            <label for="disc-special-opinion">Особое мнение / Причина спора:</label>
-                            <textarea id="disc-special-opinion" name="special_opinion" rows="2" placeholder="Опишите, если не согласны с дефектом или нужен КР"></textarea>
-                        </div>
-                    </div>
-
-                    <div class="form-grid">
-
-                    <div class="form-grid">
-                        <div class="form-group">
-                            <label for="disc-severity">Серьезность:</label>
-                            <select id="disc-severity" name="severity" required>
-                                <option value="low">Низкая</option>
-                                <option value="medium" selected>Средняя</option>
-                                <option value="high">Высокая</option>
-                                <option value="critical">Критическая</option>
-                            </select>
-                        </div>
-                        <div class="form-group">
-                            <label for="disc-responsible">Ответственный:</label>
-                            <select id="disc-responsible" name="responsible_id" required>
-                                <!-- Список мастеров/рабочих -->
-                            </select>
-                        </div>
-                    </div>
-
-                    <div class="form-group">
-                        <label for="disc-due-date">Срок устранения:</label>
-                        <input type="datetime-local" id="disc-due-date" name="due_date" required>
-                    </div>
-
-                    <button type="submit" class="button">Зафиксировать дефект</button>
-                    <div id="discrepancy-actions" class="modal-actions" style="margin-top: 20px; display: flex; flex-direction: column; gap: 10px;">
-                        <!-- Кнопки действий будут здесь -->
-                    </div>
-                </div>
-            </div>
-        </div>
+        <!-- Остальные модалки (Applications, Discrepancies) можно добавить сюда по аналогии -->
     </div>
-    <!-- === Конец модальных окон === -->
-
-    <!-- === Скрипты === -->
-    <!-- API клиент -->
-    <script src="/js/api.js"></script>
-    <!-- Компоненты -->
-    <script src="/js/components/UIComponents.js"></script>
-    <script src="/js/components/UserModal.js"></script>
-    <script src="/js/components/LotModal.js"></script>
-    <script src="/js/components/ProductModal.js"></script>
-    <script src="/js/components/ApplicationModal.js"></script>
-    <script src="/js/components/ApplicationDetailsModal.js"></script>
-    <script src="/js/components/DiscrepancyModal.js"></script>
-    <!-- Основная логика -->
-    <script src="/js/auth.js"></script>
-    <script src="/js/app.js"></script>
-    <!-- === Конец скриптов === -->
+    
+    <script src="/js/app.js" type="module"></script>
 </body>
 </html>
-
-

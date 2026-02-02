@@ -1,7 +1,11 @@
 /**
  * Modal for viewing application details and taking actions
  */
-class ApplicationDetailsModal {
+import { api } from '../api.js';
+import { authManager } from '../auth.js';
+import { UI } from './UIComponents.js';
+
+export class ApplicationDetailsModal {
     constructor() {
         this.modal = document.getElementById('application-details-modal');
         if (!this.modal) return;
@@ -41,7 +45,7 @@ class ApplicationDetailsModal {
 
     async show(applicationId) {
         try {
-            const response = await window.TMA_API.getApplicationById(applicationId);
+            const response = await api.getApplicationById(applicationId);
             if (!response.success) throw new Error(response.message);
             
             const app = response.data;
@@ -110,12 +114,12 @@ class ApplicationDetailsModal {
     async refreshDiscrepancies(applicationId) {
         this.discList.innerHTML = '<p class="subtitle">Загрузка несоответствий...</p>';
         try {
-            const response = await window.TMA_API.getDiscrepancies({ application_id: applicationId });
+            const response = await api.getDiscrepancies({ application_id: applicationId });
             this.discList.innerHTML = '';
             
             if (response.success && response.data.length > 0) {
                 response.data.forEach(disc => {
-                    const card = window.UI.createDiscrepancyCard(disc, (d) => {
+                    const card = UI.createDiscrepancyCard(disc, (d) => {
                         window.app.openEditDiscrepancyModal(d.id);
                     });
                     this.discList.appendChild(card);
@@ -132,7 +136,7 @@ class ApplicationDetailsModal {
         this.checklistItems.innerHTML = '';
         this.checklistSection.style.display = 'none';
 
-        const user = window.AuthManager.getUser();
+        const user = authManager.getUser();
         const isInspector = user.role === 'inspector' || user.role === 'admin';
 
         // Используем чек-лист из изделия, который теперь приходит вместе с заявкой
@@ -194,7 +198,7 @@ class ApplicationDetailsModal {
 
     renderActions(app) {
         this.actionsContainer.innerHTML = '';
-        const user = window.AuthManager.getUser();
+        const user = authManager.getUser();
         
         // 1. Действия для КОНТРОЛЁРА
         if (user.role === 'inspector' || user.role === 'admin') {
@@ -254,12 +258,12 @@ class ApplicationDetailsModal {
             const payload = { status };
             if (inspectorId) {
                 // Если мы берем в работу, нужно обновить и инспектора
-                await window.TMA_API.updateApplication(this.currentApp.id, { 
+                await api.updateApplication(this.currentApp.id, { 
                     inspector_id: inspectorId,
                     status: status 
                 });
             } else {
-                await window.TMA_API.updateApplicationStatus(this.currentApp.id, status);
+                await api.updateApplicationStatus(this.currentApp.id, status);
             }
             
             this.hide();
@@ -272,7 +276,7 @@ class ApplicationDetailsModal {
     async handleDelete(id) {
         if (confirm('Вы уверены, что хотите отозвать эту заявку?')) {
             try {
-                await window.TMA_API.deleteApplication(id);
+                await api.deleteApplication(id);
                 this.hide();
                 window.app.showPage('dashboard');
             } catch (e) {

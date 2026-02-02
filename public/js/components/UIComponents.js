@@ -1,7 +1,7 @@
 /**
  * UI Components for Task Cards
  */
-const UI = {
+export const UI = {
     /**
      * Creates a Task Card for Applications
      */
@@ -163,4 +163,4 @@ const UI = {
     }
 };
 
-window.UI = UI;
+// window.UI = UI; // Removed for module migration
