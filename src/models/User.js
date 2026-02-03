@@ -9,7 +9,7 @@ class User extends BaseModel {
   static instance = new User();
 
   /**
-   * Специфичный метод: поиск по Telegram ID
+   * Поиск по Telegram ID
    */
   async findByTelegramId(telegramId) {
     return this.db(this.tableName)
@@ -18,16 +18,27 @@ class User extends BaseModel {
   }
 
   /**
-   * Специфичный метод: поиск по роли
+   * Поиск по Username
    */
-  async findByRole(role, limit = 100) {
-    return this.findAll({ filters: { role }, limit });
+  async findByUsername(username) {
+    return this.db(this.tableName)
+      .where({ username, is_active: true })
+      .first();
   }
 
   /**
-   * Специфичный метод: обновление времени входа
+   * Поиск по PIN (только активные)
    */
-  async updateLastLogin(id) {
+  async findByPin(pinCode) {
+    return this.db(this.tableName)
+      .where({ pin_code: pinCode, is_active: true })
+      .first();
+  }
+
+  /**
+   * Обновление статистики входа
+   */
+  async updateLoginStats(id) {
     return this.db(this.tableName)
       .where({ id })
       .update({
@@ -36,42 +47,54 @@ class User extends BaseModel {
       });
   }
 
+  // --- Статические обертки (Delegates to instance) ---
+
+  static async findById(id) {
+    return User.instance.findById(id);
+  }
+
+  static async findAll(params) {
+    return User.instance.findAll(params);
+  }
+
+  static async create(data) {
+    return User.instance.create(data);
+  }
+
+  static async update(id, data) {
+    return User.instance.update(id, data);
+  }
+
+  static async delete(id) {
+    return User.instance.delete(id);
+  }
+
+  static async reactivate(id) {
+    return User.instance.restore(id);
+  }
+
+  static async findByTelegramId(id) {
+    return User.instance.findByTelegramId(id);
+  }
+
+  static async findByUsername(name) {
+    return User.instance.findByUsername(name);
+  }
+
+  static async findByPin(pin) {
+    return User.instance.findByPin(pin);
+  }
+
+  static async updateLoginStats(id) {
+    return User.instance.updateLoginStats(id);
+  }
+
   /**
-   * Специфичный метод: проверка PIN
+   * Метод для совместимости с контроллерами, использующими count()
    */
-  async verifyPinCode(telegramId, pinCode) {
-    const user = await this.db(this.tableName)
-      .where({ telegram_id: telegramId, pin_code: pinCode, is_active: true })
-      .first();
-    
-    if (user) {
-      await this.updateLastLogin(user.id);
-      return user;
-    }
-    return null;
-  }
-
-  // Статические методы для совместимости с существующим кодом
-  static async findById(id) { return User.instance.findById(id); }
-  static async findByTelegramId(id) { return User.instance.findByTelegramId(id); }
-  static async create(data) { return User.instance.create(data); }
-  static async update(id, data) { return User.instance.update(id, data); }
-  static async delete(id) { return User.instance.delete(id); }
-  static async restore(id) { return User.instance.restore(id); }
-  static async findByRole(role) { return User.instance.findByRole(role); }
-  static async verifyPinCode(tgId, pin) { return User.instance.verifyPinCode(tgId, pin); }
-
-  static async findAll(limit = 100, offset = 0, status = 'active') {
-    const includeInactive = status === 'all';
-    const filters = status === 'inactive' ? { is_active: false } : {};
-    return User.instance.findAll({ limit, offset, filters, includeInactive });
-  }
-
-  static async count(status = 'active') {
-       const includeInactive = status === 'all';
-    const filters = status === 'inactive' ? { is_active: false } : {};
+  static async count(filters = {}, includeInactive = false) {
     return User.instance.count(filters, includeInactive);
-   }
+  }
 }
 
 module.exports = User;

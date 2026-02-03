@@ -3,10 +3,11 @@ const Lot = require('../models/Lot');
 const User = require('../models/User');
 
 class ProductService {
-  static async getAllProducts(limit = 100, offset = 0, status = 'active') {
+  static async getAllProducts({ limit = 100, offset = 0, status = 'active' } = {}) {
     try {
-      const products = await Product.findAll(limit, offset, status);
-      const total = await Product.count(status);
+      const filters = { status };
+      const products = await Product.findAll({ limit, offset, filters });
+      const total = await Product.count(filters);
 
       return {
         products,
@@ -41,6 +42,19 @@ class ProductService {
 
   static async createProduct(productData) {
     try {
+      // Проверка уникальности (имя + участок) среди ВСЕХ
+      const existing = await Product.findAll({ 
+        filters: { 
+          name: productData.name, 
+          lot_id: productData.lot_id 
+        }, 
+        status: 'all' 
+      });
+
+      if (existing.length > 0) {
+        throw new Error(`Изделие "${productData.name}" уже существует на этом участке`);
+      }
+
       // Проверка основного участка
       if (productData.lot_id) {
         const lot = await Lot.findById(productData.lot_id);
@@ -138,11 +152,16 @@ class ProductService {
 
   static async restoreProduct(id) {
     try {
-      const product = await Product.findById(id, true); // Ищем, включая деактивированные
-      if (!product) throw new Error('Изделие не найдено');
-      if (product.is_active) throw new Error('Изделие уже активно');
+      // ЯВНО УКАЗЫВАЕМ ИСКАТЬ СРЕДИ ВСЕХ (true)
+      const product = await Product.findById(id, true);
+      if (!product) {
+        throw new Error('Изделие не найдено');
+      }
+      if (product.is_active) {
+        throw new Error('Изделие уже активно');
+      }
 
-      await Product.restore(id);
+      await Product.reactivate(id);
       return { success: true, message: 'Изделие успешно восстановлено' };
     } catch (error) {
       throw new Error(`Ошибка восстановления изделия: ${error.message}`);

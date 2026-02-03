@@ -17,6 +17,19 @@ export class BaseModal {
         event.preventDefault();
         const formData = new FormData(this.form);
         const data = Object.fromEntries(formData.entries());
+
+        // Sanitize empty strings to null
+        for (const key in data) {
+            if (data[key] === '') {
+                data[key] = null;
+            }
+        }
+
+        // Check if this is a create operation (no ID or ID is empty)
+        const isCreating = !data.id || data.id === '';
+        if (isCreating) {
+            delete data.id;
+        }
         
         const submitButton = this.form.querySelector('button[type="submit"]');
         submitButton.disabled = true;
@@ -26,9 +39,9 @@ export class BaseModal {
             if (this.onSave) {
                 await this.onSave(data);
             }
+            this.hide(); // Закрываем при успехе
         } catch (error) {
             console.error("Ошибка во время сохранения из модального окна:", error);
-            // Ошибку покажет вызывающая функция
         } finally {
             submitButton.disabled = false;
             submitButton.textContent = 'Сохранить';

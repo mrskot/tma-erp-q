@@ -3,13 +3,11 @@ const User = require('../models/User');
 
 class LotService {
   // Получить все участки
-  static async getAllLots(limit = 100, offset = 0, withMasters = true, status = 'active') {
+  static async getAllLots({ limit = 100, offset = 0, withMasters = true, status = 'active' } = {}) {
     try {
-      const lots = withMasters 
-        ? await Lot.findAllWithMasters(limit, offset, status)
-        : await Lot.findAll(limit, offset, status);
-      
-      const total = await Lot.count(status);
+      const filters = { status };
+      const lots = await Lot.findAll({ limit, offset, filters, withMasters });
+      const total = await Lot.count(filters);
 
       return {
         lots,
@@ -65,9 +63,12 @@ class LotService {
   // Создать новый участок
   static async createLot(lotData) {
     try {
-      // Проверка уникальности кода
-      const existingLot = await Lot.findByCode(lotData.code);
-      if (existingLot) {
+      // Проверка уникальности кода среди ВСЕХ (включая удаленные)
+      const existingLots = await Lot.findAll({ 
+        filters: { code: lotData.code, status: 'all' } 
+      });
+      
+      if (existingLots.length > 0) {
         throw new Error('Участок с таким кодом уже существует');
       }
 
@@ -111,8 +112,11 @@ class LotService {
 
       // Проверка уникальности кода при изменении
       if (lotData.code && lotData.code !== existingLot.code) {
-        const lotWithCode = await Lot.findByCode(lotData.code);
-        if (lotWithCode) {
+        const existingLots = await Lot.findAll({ 
+          filters: { code: lotData.code, status: 'all' } 
+        });
+        
+        if (existingLots.length > 0) {
           throw new Error('Участок с таким кодом уже существует');
         }
       }
@@ -165,9 +169,6 @@ class LotService {
   static async reactivateLot(id) {
     try {
       const result = await Lot.reactivate(id);
-      if (result === 0) {
-        throw new Error('Участок не найден или уже активен');
-      }
       return { success: true, message: 'Участок восстановлен' };
     } catch (error) {
       throw new Error(`Ошибка восстановления участка: ${error.message}`);
@@ -231,8 +232,8 @@ class LotService {
   // Получить ВСЕ участки с мастерами для модального окна
   static async getAllLotsWithMasters(status = 'active') {
     try {
-      // Лимит 1000 чтобы гарантированно получить все участки
-      const lots = await Lot.findAllWithMasters(1000, 0, status);
+      const filters = { status };
+      const lots = await Lot.findAll({ limit: 1000, offset: 0, filters, withMasters: true });
       return { success: true, data: lots };
     } catch (error) {
        throw new Error(`Ошибка получения участков с мастерами: ${error.message}`);

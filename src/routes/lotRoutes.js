@@ -23,11 +23,13 @@ const createLotValidation = [
     .optional({ nullable: true })
     .isFloat({ min: 0 }).withMessage('Расстояние должно быть неотрицательным числом'),
   body('main_master_id')
+    .customSanitizer(value => value || null)
     .notEmpty().withMessage('Основной мастер обязателен')
-    .isInt().withMessage('ID основного мастера должен быть числом'),
+    .isInt({ min: 1 }).withMessage('ID основного мастера должен быть числом'),
   body('temp_master_id')
+    .customSanitizer(value => value || null)
     .optional({ nullable: true })
-    .isInt().withMessage('ID временного мастера должен быть числом'),
+    .isInt({ min: 1 }).withMessage('ID временного мастера должен быть числом'),
 ];
 
 // Валидация для обновления участка
@@ -50,11 +52,13 @@ const updateLotValidation = [
     .optional({ nullable: true })
     .isFloat({ min: 0 }).withMessage('Расстояние должно быть неотрицательным числом'),
   body('main_master_id')
+    .customSanitizer(value => value || null)
     .optional({ nullable: true })
-    .isInt().withMessage('ID основного мастера должен быть числом'),
+    .isInt({ min: 1 }).withMessage('ID основного мастера должен быть числом'),
   body('temp_master_id')
+    .customSanitizer(value => value || null)
     .optional({ nullable: true })
-    .isInt().withMessage('ID временного мастера должен быть числом'),
+    .isInt({ min: 1 }).withMessage('ID временного мастера должен быть числом'),
   body('is_active')
     .optional()
     .isBoolean().withMessage('is_active должен быть булевым значением'),

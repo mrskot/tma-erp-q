@@ -9,7 +9,57 @@ class Lot extends BaseModel {
   static instance = new Lot();
 
   /**
-   * Специфичный метод: поиск по коду
+   * Расширенная выборка с мастерами
+   */
+  async findAll({ limit = 100, offset = 0, filters = {}, withMasters = false } = {}) {
+    const query = this.db(`${this.tableName} as l`).select('l.*');
+
+    // Модульный стандарт фильтрации статуса
+    const status = filters.status || 'active';
+    if (status === 'inactive') {
+      query.where('l.is_active', false);
+    } else if (status === 'all') {
+      // Без фильтра
+    } else {
+      query.where('l.is_active', true);
+    }
+
+    // Другие фильтры
+    if (filters.code) {
+      query.where('l.code', filters.code);
+    }
+    if (withMasters) {
+      query.select(
+        this.db.raw("m.first_name || ' ' || m.last_name as main_master_name"),
+        this.db.raw("t.first_name || ' ' || t.last_name as temp_master_name")
+      )
+      .leftJoin('users as m', 'l.main_master_id', 'm.id')
+      .leftJoin('users as t', 'l.temp_master_id', 't.id');
+    }
+
+    return query.orderBy('l.priority', 'asc').limit(limit).offset(offset);
+  }
+
+  /**
+   * Поиск по ID с мастерами и поддержкой includeInactive
+   */
+  async findById(id, includeInactive = false) {
+    const query = this.db(`${this.tableName} as l`).select('l.*').where('l.id', id);
+
+    if (!includeInactive) {
+      query.where('l.is_active', true);
+    }
+      query.select(
+        this.db.raw("m.first_name || ' ' || m.last_name as main_master_name"),
+        this.db.raw("t.first_name || ' ' || t.last_name as temp_master_name")
+      )
+      .leftJoin('users as m', 'l.main_master_id', 'm.id')
+      .leftJoin('users as t', 'l.temp_master_id', 't.id');
+    return query.first();
+  }
+
+  /**
+   * Поиск по коду
    */
   async findByCode(code) {
     return this.db(this.tableName)
@@ -18,97 +68,60 @@ class Lot extends BaseModel {
   }
 
   /**
-   * Специфичный метод: поиск по мастеру
+   * Назначение временного мастера
    */
-  async findByMaster(masterId) {
-    return this.db(this.tableName)
-      .where({ is_active: true })
-      .andWhere(function() {
-        this.where('main_master_id', masterId)
-          .orWhere('temp_master_id', masterId);
-      })
-      .orderBy('priority', 'asc');
+  async assignTempMaster(id, tempMasterId) {
+    return this.update(id, { temp_master_id: tempMasterId });
   }
 
   /**
-   * Специфичный метод: участок с информацией о мастерах
+   * Удаление временного мастера
    */
-  async findByIdWithMasters(id) {
-    const lot = await this.db(`${this.tableName} as l`)
-      .select(
-        'l.*',
-        'm.first_name as main_master_first_name', 'm.last_name as main_master_last_name',
-        't.first_name as temp_master_first_name', 't.last_name as temp_master_last_name'
-      )
-      .leftJoin('users as m', 'l.main_master_id', 'm.id')
-      .leftJoin('users as t', 'l.temp_master_id', 't.id')
-      .where({ 'l.id': id, 'l.is_active': true })
-      .first();
-
-    if (!lot) return null;
-    return this._formatLotWithMasters(lot);
+  async removeTempMaster(id) {
+    return this.update(id, { temp_master_id: null });
   }
 
-  /**
-   * Специфичный метод: все участки с информацией о мастерах
-   */
-  async findAllWithMasters(limit = 100, offset = 0, status = 'active') {
-    const query = this.db(`${this.tableName} as l`)
-      .select(
-        'l.*',
-        'm.first_name as main_master_first_name', 'm.last_name as main_master_last_name',
-        't.first_name as temp_master_first_name', 't.last_name as temp_master_last_name'
-      )
-      .leftJoin('users as m', 'l.main_master_id', 'm.id')
-      .leftJoin('users as t', 'l.temp_master_id', 't.id');
+  // --- Статические обертки ---
 
-    if (status === 'active') query.where('l.is_active', true);
-    else if (status === 'inactive') query.where('l.is_active', false);
-
-    const rows = await query.orderBy('l.priority', 'asc').limit(limit).offset(offset);
-    return rows.map(r => this._formatLotWithMasters(r));
+  static async findById(id, withMasters = false) {
+    return Lot.instance.findById(id, withMasters);
   }
 
-  _formatLotWithMasters(row) {
-    if (!row) return null;
-    return {
-      ...row,
-      main_master_name: row.main_master_id ? `${row.main_master_first_name} ${row.main_master_last_name}` : null,
-      temp_master_name: row.temp_master_id ? `${row.temp_master_first_name} ${row.temp_master_last_name}` : null
-    };
+  static async findAll(params) {
+    return Lot.instance.findAll(params);
   }
-  // Статические методы для совместимости
-  static async findById(id) { return Lot.instance.findById(id); }
-  static async findByCode(code) { return Lot.instance.findByCode(code); }
-  static async findByMaster(masterId) { return Lot.instance.findByMaster(masterId); }
-  static async create(data) { return Lot.instance.create(data); }
-  static async update(id, data) { return Lot.instance.update(id, data); }
-  static async delete(id) { return Lot.instance.delete(id); }
-  static async restore(id) { return Lot.instance.restore(id); }
-  static async reactivate(id) { return Lot.instance.restore(id); }
-  static async findByIdWithMasters(id) { return Lot.instance.findByIdWithMasters(id); }
-  static async findAllWithMasters(limit, offset, status) { return Lot.instance.findAllWithMasters(limit, offset, status); }
-  
-  static async count(status = 'active') {
-    const includeInactive = status === 'all';
-    const filters = status === 'inactive' ? { is_active: false } : {};
+
+  static async findByCode(code) {
+    return Lot.instance.findByCode(code);
+  }
+
+  static async create(data) {
+    return Lot.instance.create(data);
+  }
+
+  static async update(id, data) {
+    return Lot.instance.update(id, data);
+  }
+
+  static async delete(id) {
+    return Lot.instance.delete(id);
+  }
+
+  static async reactivate(id) {
+    return Lot.instance.restore(id);
+  }
+
+  static async assignTempMaster(id, tempMasterId) {
+    return Lot.instance.assignTempMaster(id, tempMasterId);
+  }
+
+  static async removeTempMaster(id) {
+    return Lot.instance.removeTempMaster(id);
+  }
+
+  static async count(filters = {}, includeInactive = false) {
     return Lot.instance.count(filters, includeInactive);
-  }
-
-  static async assignTempMaster(lotId, tempMasterId) {
-    return Lot.instance.update(lotId, { temp_master_id: tempMasterId });
-  }
-
-  static async removeTempMaster(lotId) {
-    return Lot.instance.update(lotId, { temp_master_id: null });
-  }
-
-  static async findAll(limit = 100, offset = 0, status = 'active') {
-    const includeInactive = status === 'all';
-    const filters = status === 'inactive' ? { is_active: false } : {};
-    return Lot.instance.findAll({ limit, offset, filters, includeInactive, orderBy: { column: 'priority', direction: 'asc' } });
   }
 }
 
 module.exports = Lot;
-

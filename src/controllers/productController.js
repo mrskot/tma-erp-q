@@ -6,7 +6,11 @@ const { AppError } = require('../utils/errorHandler');
 class ProductController {
   static getAllProducts = asyncHandler(async (req, res) => {
       const { limit = 100, offset = 0, status = 'active' } = req.query;
-      const result = await ProductService.getAllProducts(parseInt(limit), parseInt(offset), status);
+      const result = await ProductService.getAllProducts({
+        limit: parseInt(limit),
+        offset: parseInt(offset),
+        status
+      });
 
       res.json({
         success: true,

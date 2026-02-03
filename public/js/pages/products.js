@@ -7,10 +7,11 @@ let state = { filter: 'active' };
 
 async function loadDataAndUpdateView() {
     try {
+        // Запрашиваем ВСЕГДА ВСЕ ДАННЫЕ, чтобы избежать рассинхрона
         const [productsRes, lotsRes] = await Promise.all([api.getProducts('all'), api.getLots('active')]);
         store.setProducts(productsRes.data);
         store.setLots(lotsRes.data);
-        render();
+        render(); // render() сам отфильтрует данные по state.filter
     } catch (error) {
         document.getElementById('page-content').innerHTML = `<p class="error-message">Ошибка загрузки: ${error.message}</p>`;
     }
@@ -66,24 +67,60 @@ function handlePageClick(event) {
     if (!button) return;
 
     const action = button.dataset.action;
-    const productId = button.closest('tr')?.dataset.productId || button.dataset.productId;
+    const productId = button.closest('.mobile-card')?.dataset.productId || button.dataset.productId;
 
     switch (action) {
         case 'create':
-            productModal.show({ mode: 'create', lots: store.state.lots, onSave: async (data) => {
-                await api.createProduct(data); productModal.hide(); await loadDataAndUpdateView();
-            }});
+            productModal.show({ 
+                mode: 'create', 
+                lots: store.state.lots, 
+                onSave: async (data) => {
+                    try {
+                        // Обработка чек-листа перед отправкой
+                        if (data.checklist) {
+                            data.checklist = data.checklist.split('\n').map(item => item.trim()).filter(item => item);
+                        }
+                        await api.createProduct(data); 
+                        productModal.hide(); 
+                        await loadDataAndUpdateView();
+                    } catch (error) {
+                        alert(`Ошибка создания: ${error.message}`);
+                    }
+                }
+            });
             break;
         case 'edit':
-            productModal.show({ mode: 'edit', lots: store.state.lots, productData: store.getProductById(productId), onSave: async (data) => {
-                await api.updateProduct(productId, data); productModal.hide(); await loadDataAndUpdateView();
-            }});
+            productModal.show({ 
+                mode: 'edit', 
+                lots: store.state.lots, 
+                productData: store.getProductById(productId), 
+                onSave: async (data) => {
+                    try {
+                         if (data.checklist) {
+                            data.checklist = data.checklist.split('\n').map(item => item.trim()).filter(item => item);
+                        }
+                        await api.updateProduct(productId, data); 
+                        productModal.hide(); 
+                        await loadDataAndUpdateView();
+                    } catch (error) {
+                        alert(`Ошибка обновления: ${error.message}`);
+                    }
+                }
+            });
             break;
         case 'delete':
-            if (confirm('Деактивировать изделие?')) api.deleteProduct(productId).then(loadDataAndUpdateView);
+            if (confirm('Деактивировать изделие?')) {
+                api.deleteProduct(productId)
+                    .then(loadDataAndUpdateView)
+                    .catch(error => alert(`Ошибка удаления: ${error.message}`));
+            }
             break;
         case 'restore':
-            if (confirm('Восстановить изделие?')) api.reactivateProduct(productId).then(loadDataAndUpdateView);
+            if (confirm('Восстановить изделие?')) {
+                api.reactivateProduct(productId)
+                    .then(loadDataAndUpdateView)
+                    .catch(error => alert(`Ошибка восстановления: ${error.message}`));
+            }
             break;
     }
 }

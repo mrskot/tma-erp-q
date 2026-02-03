@@ -7,14 +7,13 @@ class LotController {
   // Получить все участки
   static getAllLots = asyncHandler(async (req, res) => {
     const { limit = 100, offset = 0, with_masters = 'true', status = 'active' } = req.query;
-    const withMasters = with_masters === 'true';
-
-    const result = await LotService.getAllLots(
-      parseInt(limit),
-      parseInt(offset),
-      withMasters,
+    
+    const result = await LotService.getAllLots({
+      limit: parseInt(limit),
+      offset: parseInt(offset),
+      withMasters: with_masters === 'true',
       status
-    );
+    });
 
     res.json({
       success: true,
@@ -183,7 +182,7 @@ class LotController {
   static getLotsWithMasters = asyncHandler(async (req, res) => {
     const { status } = req.query;
     // Используем существующий LotService, который умеет обогащать данные
-    const result = await LotService.getAllLots(1000, 0, true, status);
+    const result = await LotService.getAllLots({ limit: 1000, offset: 0, withMasters: true, status });
     res.json({
         success: true,
         data: result.lots

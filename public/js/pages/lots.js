@@ -7,10 +7,11 @@ let state = { filter: 'active' };
 
 async function loadDataAndUpdateView() {
     try {
+        // Запрашиваем ВСЕГДА ВСЕ ДАННЫЕ, чтобы избежать рассинхрона
         const [lotsRes, usersRes] = await Promise.all([api.getLots('all'), api.getUsers('active')]);
         store.setLots(lotsRes.data);
         store.setMasters(usersRes.data.filter(u => u.role === 'master'));
-        render();
+        render(); // render() сам отфильтрует данные по state.filter
     } catch (error) {
         document.getElementById('page-content').innerHTML = `<p class="error-message">Ошибка загрузки: ${error.message}</p>`;
     }
@@ -68,21 +69,49 @@ function handlePageClick(event) {
 
     switch (action) {
         case 'create':
-            // Используем переданную lotModal
-            lotModal.show({ mode: 'create', masters: store.state.masters, onSave: async (data) => {
-                await api.createLot(data); lotModal.hide(); await loadDataAndUpdateView();
-            }});
+            lotModal.show({ 
+                mode: 'create', 
+                masters: store.state.masters, 
+                onSave: async (data) => {
+                    try {
+                        await api.createLot(data); 
+                        lotModal.hide(); 
+                        await loadDataAndUpdateView();
+                    } catch (error) {
+                        alert(`Ошибка создания: ${error.message}`);
+                    }
+                }
+            });
             break;
         case 'edit':
-            lotModal.show({ mode: 'edit', masters: store.state.masters, lotData: store.getLotById(lotId), onSave: async (data) => {
-                await api.updateLot(lotId, data); lotModal.hide(); await loadDataAndUpdateView();
-            }});
+            lotModal.show({ 
+                mode: 'edit', 
+                masters: store.state.masters, 
+                lotData: store.getLotById(lotId), 
+                onSave: async (data) => {
+                    try {
+                        await api.updateLot(lotId, data); 
+                        lotModal.hide(); 
+                        await loadDataAndUpdateView();
+                    } catch (error) {
+                        alert(`Ошибка обновления: ${error.message}`);
+                    }
+                }
+            });
             break;
         case 'delete':
-            if (confirm('Деактивировать участок?')) api.deleteLot(lotId).then(loadDataAndUpdateView);
+            if (confirm('Деактивировать участок?')) {
+                api.deleteLot(lotId)
+                    .then(loadDataAndUpdateView)
+                    .catch(error => alert(`Ошибка удаления: ${error.message}`));
+            }
             break;
         case 'restore':
-            if (confirm('Восстановить участок?')) api.reactivateLot(lotId).then(loadDataAndUpdateView);
+            if (confirm('Восстановить участок?')) {
+                api.reactivateLot(lotId)
+                    .then(loadDataAndUpdateView)
+                    .catch(error => alert(`Ошибка восстановления: ${error.message}`));
+            }
             break;
     }
 }

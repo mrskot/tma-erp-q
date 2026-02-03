@@ -46,11 +46,11 @@ class TMA_API {
         this.showLoader();
         try {
             const response = await fetch(url, config);
-            const data = await response.json();
             if (!response.ok) {
-                throw new Error(data.message || 'Ошибка API');
+                const errorData = await response.json().catch(() => ({ message: response.statusText }));
+                throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
             }
-            return data;
+            return await response.json();
         } catch (error) {
             console.error(`API Error on ${endpoint}:`, error);
             throw error;
@@ -69,15 +69,15 @@ class TMA_API {
     async reactivateUser(userId) { return this.request(`/users/${userId}/restore`, { method: 'POST' }); }
     
     // --- Lots ---
-    async getLots(status = 'all') { return this.request(`/lots?status=${status}&with_masters=true`); }
-    async getLotsWithMasters(status = 'all') { return this.request(`/lots?status=${status}&with_masters=true`); }
+    async getLots(status = 'active') { return this.request(`/lots?status=${status}&with_masters=true`); }
+    async getLotsWithMasters(status = 'active') { return this.request(`/lots?status=${status}&with_masters=true`); }
     async createLot(lotData) { return this.request('/lots', { method: 'POST', body: JSON.stringify(lotData) }); }
     async updateLot(lotId, lotData) { return this.request(`/lots/${lotId}`, { method: 'PUT', body: JSON.stringify(lotData) }); }
     async deleteLot(lotId) { return this.request(`/lots/${lotId}`, { method: 'DELETE' }); }
     async reactivateLot(lotId) { return this.request(`/lots/${lotId}/restore`, { method: 'POST' }); }
 
     // --- Products ---
-    async getProducts(status = 'all') { return this.request(`/products?status=${status}`); }
+    async getProducts(status = 'active') { return this.request(`/products?status=${status}`); }
     async createProduct(productData) { return this.request('/products', { method: 'POST', body: JSON.stringify(productData) }); }
     async updateProduct(productId, productData) { return this.request(`/products/${productId}`, { method: 'PUT', body: JSON.stringify(productData) }); }
     async deleteProduct(productId) { return this.request(`/products/${productId}`, { method: 'DELETE' }); }

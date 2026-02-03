@@ -11,11 +11,23 @@ const productValidationRules = [
   body('product_type')
     .isIn(['finished', 'semi_finished', 'assembly', 'part'])
     .withMessage('Указан неверный тип изделия.'),
-  body('lot_id').optional({ checkFalsy: true }).isInt().withMessage('ID участка должен быть целым числом.'),
-  body('previous_lot_id').optional({ checkFalsy: true }).isInt().withMessage('ID предыдущего участка должен быть целым числом.'),
-  body('next_lot_id').optional({ checkFalsy: true }).isInt().withMessage('ID следующего участка должен быть целым числом.'),
-  body('default_inspector_id').optional({ checkFalsy: true }).isInt().withMessage('ID контролёра должен быть целым числом.'),
-  body('inspection_time_minutes').optional({ checkFalsy: true }).isInt({ min: 1 }).withMessage('Время на приёмку должно быть положительным целым числом.'),
+  body('lot_id')
+    .customSanitizer(value => value || null)
+    .notEmpty().withMessage('Участок обязателен')
+    .isInt({ min: 1 }).withMessage('ID участка должен быть числом.'),
+  body('previous_lot_id')
+    .customSanitizer(value => value || null)
+    .optional({ nullable: true })
+    .isInt({ min: 1 }).withMessage('ID предыдущего участка должен быть числом.'),
+  body('next_lot_id')
+    .customSanitizer(value => value || null)
+    .optional({ nullable: true })
+    .isInt({ min: 1 }).withMessage('ID следующего участка должен быть числом.'),
+  body('default_inspector_id')
+    .customSanitizer(value => value || null)
+    .optional({ nullable: true })
+    .isInt({ min: 1 }).withMessage('ID контролёра должен быть целым числом.'),
+  body('inspection_time_minutes').optional({ nullable: true }).isInt({ min: 1 }).withMessage('Время на приёмку должно быть положительным целым числом.'),
   body('checklist').optional().custom((value) => {
     if (Array.isArray(value)) {
       return true;

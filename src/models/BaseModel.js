@@ -9,18 +9,24 @@ class BaseModel {
   /**
    * Стандартная выборка с пагинацией и фильтрацией
    */
-  async findAll({ limit = 100, offset = 0, filters = {}, includeInactive = false, orderBy = { column: 'created_at', direction: 'desc' } } = {}) {
+  async findAll({ limit = 100, offset = 0, filters = {}, orderBy = { column: 'created_at', direction: 'desc' } } = {}) {
     const query = this.db(this.tableName);
+    const reservedKeys = ['status'];
 
-    // Soft delete filter
-    if (!includeInactive) {
-      query.where('is_active', true);
+    // Логика статуса (is_active)
+    const status = filters.status || 'active';
+    if (status === 'inactive') {
+      query.where(`${this.tableName}.is_active`, false);
+    } else if (status === 'all') {
+      // Все записи
+    } else {
+      query.where(`${this.tableName}.is_active`, true);
     }
 
-    // Custom filters
+    // Применяем остальные фильтры
     Object.keys(filters).forEach(key => {
-      if (filters[key] !== undefined) {
-        query.where(key, filters[key]);
+      if (filters[key] !== undefined && filters[key] !== null && !reservedKeys.includes(key)) {
+        query.where(`${this.tableName}.${key}`, filters[key]);
       }
     });
 
@@ -107,20 +113,26 @@ class BaseModel {
   /**
    * Подсчет количества
    */
-  async count(filters = {}, includeInactive = false) {
+  async count(filters = {}) {
     const query = this.db(this.tableName);
+    const reservedKeys = ['status'];
 
-    if (!includeInactive) {
-      query.where('is_active', true);
+    const status = filters.status || 'active';
+    if (status === 'inactive') {
+      query.where(`${this.tableName}.is_active`, false);
+    } else if (status === 'all') {
+      // Все
+    } else {
+      query.where(`${this.tableName}.is_active`, true);
     }
 
     Object.keys(filters).forEach(key => {
-      if (filters[key] !== undefined) {
-        query.where(key, filters[key]);
+      if (filters[key] !== undefined && filters[key] !== null && !reservedKeys.includes(key)) {
+        query.where(`${this.tableName}.${key}`, filters[key]);
       }
     });
 
-    const result = await query.count('id as count').first();
+    const result = await query.count(`${this.tableName}.id as count`).first();
     return parseInt(result.count || result['count(*)'], 10);
   }
 }

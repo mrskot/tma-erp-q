@@ -5,11 +5,13 @@ const bcrypt = require('bcryptjs');
 class UserService {
   static async authenticate(telegramId, pinCode) {
     try {
-      const user = await User.verifyPinCode(telegramId, pinCode);
+      const user = await User.findByPin(pinCode);
       
-      if (!user) {
+      if (!user || String(user.telegram_id) !== String(telegramId)) {
         throw new Error('Неверный PIN-код или пользователь не найден');
       }
+
+      await User.updateLoginStats(user.id);
 
       return {
         id: user.id,
@@ -53,8 +55,11 @@ class UserService {
 
   static async getAllUsers(limit = 100, offset = 0, status = 'active') {
     try {
-      const users = await User.findAll(limit, offset, status);
-      const total = await User.count(status);
+
+
+      const filters = { status };
+      const users = await User.findAll({ limit, offset, filters });
+      const total = await User.count(filters);
 
       return {
         users: users.map(user => ({
@@ -163,7 +168,7 @@ class UserService {
 
   static async getUsersByRole(role) {
     try {
-      const users = await User.findByRole(role);
+      const users = await User.findAll({ filters: { role } });
       
       return users.map(user => ({
         id: user.id,

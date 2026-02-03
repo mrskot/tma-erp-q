@@ -1,4 +1,3 @@
-// public/js/components/ProductModal.js
 import { BaseModal } from './BaseModal.js';
 
 export class ProductModal extends BaseModal {
@@ -6,23 +5,7 @@ export class ProductModal extends BaseModal {
         super('product-modal', 'product-form');
     }
 
-    // Переопределяем handleSubmit для обработки checklist
-    async handleSubmit(event) {
-        event.preventDefault();
-        const formData = new FormData(this.form);
-        const data = Object.fromEntries(formData.entries());
-
-        // Преобразуем textarea в массив строк
-        data.checklist = data.checklist.split('\n').map(item => item.trim()).filter(item => item);
-        
-        const submitButton = this.form.querySelector('button[type="submit"]');
-        submitButton.disabled = true;
-        try {
-            if (this.onSave) await this.onSave(data);
-        } finally {
-            submitButton.disabled = false;
-        }
-    }
+    // handleSubmit удален, чтобы использовался стандартный из BaseModal
 
     show({ mode, productData = null, lots = [], onSave }) {
         super.show({ onSave });

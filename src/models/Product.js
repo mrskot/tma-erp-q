@@ -9,40 +9,108 @@ class Product extends BaseModel {
   static instance = new Product();
 
   /**
-   * Специфичный метод: поиск по Lot ID
+   * Расширенная выборка с именем участка
+   */
+  async findAll({ limit = 100, offset = 0, filters = {} } = {}) {
+    const query = this.db(`${this.tableName} as p`)
+      .select('p.*', 'l.name as lot_name')
+      .leftJoin('lots as l', 'p.lot_id', 'l.id');
+
+    // Модульный стандарт фильтрации статуса
+    const status = filters.status || 'active';
+    if (status === 'inactive') {
+      query.where('p.is_active', false);
+    } else if (status === 'all') {
+      // Без фильтра
+    } else {
+      query.where('p.is_active', true);
+    }
+
+    // Другие фильтры
+    if (filters.name) query.where('p.name', 'like', `%${filters.name}%`);
+    if (filters.lot_id) query.where('p.lot_id', filters.lot_id);
+
+    return query.orderBy('p.name', 'asc').limit(limit).offset(offset);
+  }
+
+  /**
+   * Поиск по ID с именем участка и поддержкой includeInactive
+   */
+  async findById(id, includeInactive = false) {
+    const query = this.db(`${this.tableName} as p`)
+      .select('p.*', 'l.name as lot_name')
+      .leftJoin('lots as l', 'p.lot_id', 'l.id')
+      .where('p.id', id);
+
+    if (!includeInactive) {
+      query.where('p.is_active', true);
+    }
+
+    return query.first();
+  }
+
+  /**
+   * Поиск по ID участка
    */
   async findByLotId(lotId, limit = 100, offset = 0) {
-    return this.findAll({ filters: { lot_id: lotId }, limit, offset });
+    return this.db(`${this.tableName} as p`)
+      .select('p.*', 'l.name as lot_name')
+      .leftJoin('lots as l', 'p.lot_id', 'l.id')
+      .where({ 'p.lot_id': lotId, 'p.is_active': true })
+      .orderBy('p.name', 'asc')
+      .limit(limit)
+      .offset(offset);
   }
+
   /**
-   * Специфичный метод: поиск по типу продукта
+   * Поиск по типу изделия
    */
-  async findByProductType(productType, limit = 100, offset = 0) {
-    return this.findAll({ filters: { product_type: productType }, limit, offset });
-  }
-  // Статические методы для совместимости
-  static async findById(id, includeInactive = false) { return Product.instance.findById(id, includeInactive); }
-  
-  static async findAll(limit = 100, offset = 0, status = 'active') {
-    const includeInactive = status === 'all';
-    const filters = status === 'inactive' ? { is_active: false } : {};
-    return Product.instance.findAll({ limit, offset, filters, includeInactive, orderBy: { column: 'name', direction: 'asc' } });
+  async findByType(type, limit = 100, offset = 0) {
+    return this.db(`${this.tableName} as p`)
+      .select('p.*', 'l.name as lot_name')
+      .leftJoin('lots as l', 'p.lot_id', 'l.id')
+      .where({ 'p.product_type': type, 'p.is_active': true })
+      .orderBy('p.name', 'asc')
+      .limit(limit)
+      .offset(offset);
   }
 
-  static async findByLotId(id, limit, offset) { return Product.instance.findByLotId(id, limit, offset); }
-  static async create(data) { return Product.instance.create(data); }
-  static async update(id, data) { return Product.instance.update(id, data); }
-  static async delete(id) { return Product.instance.delete(id); }
-  static async restore(id) { return Product.instance.restore(id); }
+  // --- Статические обертки (Delegates to instance) ---
 
-  static async count(status = 'active') {
-    const includeInactive = status === 'all';
-    const filters = status === 'inactive' ? { is_active: false } : {};
+  static async findById(id) {
+    return Product.instance.findById(id);
+  }
+
+  static async findAll(params) {
+    return Product.instance.findAll(params);
+  }
+
+  static async findByLotId(lotId, limit, offset) {
+    return Product.instance.findByLotId(lotId, limit, offset);
+  }
+
+  static async findByType(type, limit, offset) {
+    return Product.instance.findByType(type, limit, offset);
+  }
+
+  static async create(data) {
+    return Product.instance.create(data);
+  }
+
+  static async update(id, data) {
+    return Product.instance.update(id, data);
+  }
+
+  static async delete(id) {
+    return Product.instance.delete(id);
+  }
+
+  static async reactivate(id) {
+    return Product.instance.restore(id);
+  }
+
+  static async count(filters = {}, includeInactive = false) {
     return Product.instance.count(filters, includeInactive);
-  }
-
-  static async findByProductType(productType, limit, offset) {
-    return Product.instance.findByProductType(productType, limit, offset);
   }
 }
 
