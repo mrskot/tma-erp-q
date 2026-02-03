@@ -1,196 +1,121 @@
 const db = require('../config/database');
+const BaseModel = require('./BaseModel');
 
-class Discrepancy {
-  static async findById(id) {
-    return db('discrepancies as d')
+class Discrepancy extends BaseModel {
+  constructor() {
+    super('discrepancies');
+  }
+
+  /**
+   * Переопределяем findById для подтягивания данных
+   */
+  async findById(id, includeInactive = false) {
+    const query = this.db(`${this.tableName} as d`)
       .select(
         'd.*', 
         'p.inspection_mode', 
         'a.application_number',
         'a.btx_appl_id',
-        'u_ins.first_name as inspector_first_name',
-        'u_ins.last_name as inspector_last_name',
-        'u_resp.first_name as responsible_first_name',
-        'u_resp.last_name as responsible_last_name'
+        db.raw("u_ins.first_name || ' ' || u_ins.last_name as inspector_name"),
+        db.raw("u_resp.first_name || ' ' || u_resp.last_name as responsible_name")
       )
       .leftJoin('applications as a', 'd.application_id', 'a.id')
       .leftJoin('products as p', 'a.product_id', 'p.id')
       .leftJoin('users as u_ins', 'd.inspector_id', 'u_ins.id')
       .leftJoin('users as u_resp', 'd.responsible_id', 'u_resp.id')
-      .where({ 'd.id': id, 'd.is_active': true })
-      .first()
-      .then(disc => {
-        if (disc) {
-          disc.inspector_name = disc.inspector_first_name ? `${disc.inspector_first_name} ${disc.inspector_last_name}` : 'Система';
-          disc.responsible_name = disc.responsible_first_name ? `${disc.responsible_first_name} ${disc.responsible_last_name}` : 'Не назначен';
-        }
-        return disc;
-      });
+      .where('d.id', id);
+
+    if (!includeInactive) {
+      query.andWhere('d.is_active', true);
+    }
+
+    return query.first();
   }
 
+  /**
+   * Специфичный метод: по ответственному
+   */
+  async findByResponsibleId(responsibleId, limit = 100, offset = 0) {
+    return this.findAll({
+      limit,
+      offset,
+      filters: { responsible_id: responsibleId }
+    });
+  }
+
+  /**
+   * Специфичный метод: по заявке
+   */
+  async findByApplicationId(applicationId) {
+    return this.db(this.tableName)
+      .where({ application_id: applicationId, is_active: true })
+      .orderBy('detected_at', 'desc');
+  }
+
+  // Статические обертки для совместимости
+  static async findById(id) { return new Discrepancy().findById(id); }
+  static async create(data) { return new Discrepancy().create(data); }
+  static async update(id, data) { return new Discrepancy().update(id, data); }
+  static async delete(id) { return new Discrepancy().delete(id); }
+  
   static async findAll(filters = {}, limit = 100, offset = 0) {
-    const query = db('discrepancies as d')
+    const instance = new Discrepancy();
+    const query = instance.db(`${instance.tableName} as d`)
       .select(
         'd.*', 
         'a.application_number',
-        'u_ins.first_name as inspector_first_name',
-        'u_ins.last_name as inspector_last_name'
+        db.raw("u_ins.first_name || ' ' || u_ins.last_name as inspector_name")
       )
       .leftJoin('applications as a', 'd.application_id', 'a.id')
       .leftJoin('users as u_ins', 'd.inspector_id', 'u_ins.id')
-      .where({ 'd.is_active': true });
+      .where('d.is_active', true);
 
-    if (filters.application_id) {
-      query.where('application_id', filters.application_id);
-    }
+    if (filters.application_id) query.where('d.application_id', filters.application_id);
+    if (filters.responsible_id) query.where('d.responsible_id', filters.responsible_id);
 
     if (filters.status && filters.status !== 'all') {
       const statuses = filters.status.split(',');
-      if (statuses.length > 1) {
-        query.whereIn('status', statuses);
-      } else {
-        query.where('status', filters.status);
-      }
+      statuses.length > 1 ? query.whereIn('d.status', statuses) : query.where('d.status', filters.status);
     }
 
     if (filters.severity && filters.severity !== 'all') {
-      query.where('severity', filters.severity);
-    }
-
-    if (filters.responsible_id) {
-      query.where('responsible_id', filters.responsible_id);
+      query.where('d.severity', filters.severity);
     }
 
     return query
       .orderBy('d.detected_at', 'desc')
       .limit(limit)
-      .offset(offset)
-      .then(rows => rows.map(disc => {
-        disc.inspector_name = disc.inspector_first_name ? `${disc.inspector_first_name} ${disc.inspector_last_name}` : 'Система';
-        return disc;
-      }));
-  }
-
-  static async findByStatus(status, limit = 100, offset = 0) {
-    return db('discrepancies')
-      .where({ status, is_active: true })
-      .orderBy('due_date', 'asc')
-      .limit(limit)
       .offset(offset);
   }
 
-  static async findByResponsibleId(responsibleId, limit = 100, offset = 0) {
-    return db('discrepancies')
-      .where({ responsible_id: responsibleId, is_active: true })
-      .orderBy('due_date', 'asc')
-      .limit(limit)
-      .offset(offset);
-  }
-
-  static async findByApplicationId(applicationId) {
-    return db('discrepancies')
-      .where({ application_id: applicationId, is_active: true })
-      .orderBy('detected_at', 'desc');
-  }
-
-  static async create(discrepancyData) {
-    const [id] = await db('discrepancies')
-      .insert(discrepancyData);
-    return this.findById(id);
-  }
-
-  static async update(id, discrepancyData) {
-    // Фильтруем поля, чтобы не пытаться сохранить виртуальные колонки (из JOIN)
-    const allowedColumns = [
-      'application_id', 'title', 'description', 'severity', 
-      'defect_photo_url', 'defect_photo_key', 'responsible_id', 
-      'assigned_worker_id', 'inspector_id', 'detected_at', 'assigned_at', 
-      'started_at', 'due_date', 'closed_at', 'status', 'closure_scenario', 
-      'resolution_card_details', 'scrap_reason', 'political_decision_details', 
-      'metadata', 'is_active', 'fix_photo_url', 'fix_photo_key', 
-      'special_opinion', 'is_disputed'
-    ];
-
-    const filteredData = {};
-    allowedColumns.forEach(col => {
-      if (discrepancyData[col] !== undefined) {
-        filteredData[col] = discrepancyData[col];
-      }
-    });
-
-    await db('discrepancies')
-      .where({ id })
-      .update({
-        ...filteredData,
-        updated_at: db.fn.now()
-      });
-    return this.findById(id);
-  }
-
-  static async delete(id) {
-    return db('discrepancies')
-      .where({ id })
-      .update({
-        is_active: false,
-        updated_at: db.fn.now()
-      });
-  }
-
-  static async count() {
-    const result = await db('discrepancies')
-      .where({ is_active: true })
-      .count('id as count')
-      .first();
-    return parseInt(result.count, 10);
-  }
-
-  static async countByStatus(status) {
-    const result = await db('discrepancies')
-      .where({ status, is_active: true })
-      .count('id as count')
-      .first();
-    return parseInt(result.count, 10);
+  static async count(status = 'active') {
+    const includeInactive = status === 'all';
+    const filters = {};
+    if (status === 'inactive') filters.is_active = false;
+    return new Discrepancy().count(filters, includeInactive);
   }
 
   static async updateStatus(id, status, closureScenario = null, additionalData = {}) {
-    const allowedColumns = [
-      'status', 'closure_scenario', 'closed_at', 'fix_photo_url', 
-      'fix_photo_key', 'special_opinion', 'is_disputed', 'description'
-    ];
-
-    const filteredData = {};
-    allowedColumns.forEach(col => {
-      if (additionalData[col] !== undefined) {
-        filteredData[col] = additionalData[col];
-      }
-    });
-
     const updateData = {
       status,
-      updated_at: db.fn.now(),
-      ...filteredData
+      ...additionalData
     };
-
-    if (closureScenario) {
-      updateData.closure_scenario = closureScenario;
-    }
-    if (status === 'closed') {
-      updateData.closed_at = db.fn.now();
-    }
+    if (closureScenario) updateData.closure_scenario = closureScenario;
+    if (status === 'closed') updateData.closed_at = db.fn.now();
     
-    await db('discrepancies')
-      .where({ id })
-      .update(updateData);
-      
-    return this.findById(id);
+    return new Discrepancy().update(id, updateData);
   }
 
-  static async getBySeverity(severity, limit = 100, offset = 0) {
-    return db('discrepancies')
-      .where({ severity, is_active: true })
-      .orderBy('detected_at', 'desc')
-      .limit(limit)
-      .offset(offset);
+  static async findByStatus(status, limit, offset) {
+      return new Discrepancy().findAll({ filters: { status }, limit, offset });
+  }
+
+  static async findByApplicationId(appId) {
+      return new Discrepancy().findByApplicationId(appId);
+  }
+
+  static async findByResponsibleId(respId, limit, offset) {
+      return new Discrepancy().findByResponsibleId(respId, limit, offset);
   }
 }
 

@@ -1,7 +1,7 @@
 // public/js/components/DiscrepancyModal.js
 
-import { api } from '../api.js';
-import { authManager } from '../auth.js';
+import api from '../api.js';
+import authManager from '../auth.js';
 
 export class DiscrepancyModal {
     constructor() {

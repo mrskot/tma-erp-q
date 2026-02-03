@@ -1,9 +1,8 @@
 // public/js/pages/lots.js
 import api from '../api.js';
 import store from '../store.js';
-import { LotModal } from '../components/LotModal.js';
 
-const lotModal = new LotModal();
+let lotModal; // Ссылка на модалку
 let state = { filter: 'active' };
 
 async function loadDataAndUpdateView() {
@@ -34,7 +33,8 @@ function render() {
             </tr>`;
     }).join('');
 
-    document.getElementById('page-content').innerHTML = `
+    const container = document.getElementById('page-content');
+    container.innerHTML = `
         <div class="page-header"><h3>Управление участками</h3>
             <div class="page-controls">
                 <select class="page-filter">
@@ -60,6 +60,7 @@ function handlePageClick(event) {
 
     switch (action) {
         case 'create':
+            // Используем переданную lotModal
             lotModal.show({ mode: 'create', masters: store.state.masters, onSave: async (data) => {
                 await api.createLot(data); lotModal.hide(); await loadDataAndUpdateView();
             }});
@@ -78,14 +79,17 @@ function handlePageClick(event) {
     }
 }
 
-export async function init(container) {
+export async function init(container, modals) {
+    lotModal = modals.lot; // Получаем экземпляр из app.js
     container.innerHTML = `<h2>Загрузка...</h2>`;
-    container.removeEventListener('click', handlePageClick);
+    
+    // Просто вешаем слушатели, app.js гарантирует, что контейнер чист
     container.addEventListener('click', handlePageClick);
     container.addEventListener('change', e => {
         if (e.target.classList.contains('page-filter')) {
             state.filter = e.target.value; render();
         }
     });
+    
     await loadDataAndUpdateView();
 }

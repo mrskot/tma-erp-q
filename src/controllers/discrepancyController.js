@@ -54,10 +54,6 @@ class DiscrepancyController {
       });
 
   static createDiscrepancy = asyncHandler(async (req, res) => {
-      if (!req.user || !['admin', 'inspector', 'director'].includes(req.user.role)) {
-      throw new AppError('Недостаточно прав', 403);
-      }
-
       const errors = validationResult(req);
       if (!errors.isEmpty()) {
       throw new AppError('Ошибка валидации', 400, errors.array());
@@ -67,10 +63,6 @@ class DiscrepancyController {
   });
 
   static updateDiscrepancy = asyncHandler(async (req, res) => {
-      if (!req.user || !['admin', 'inspector', 'director', 'master'].includes(req.user.role)) {
-      throw new AppError('Недостаточно прав', 403);
-      }
-
       const errors = validationResult(req);
       if (!errors.isEmpty()) {
       throw new AppError('Ошибка валидации', 400, errors.array());
@@ -81,10 +73,6 @@ class DiscrepancyController {
       });
 
   static updateDiscrepancyStatus = asyncHandler(async (req, res) => {
-      if (!req.user || !['admin', 'inspector', 'director', 'master'].includes(req.user.role)) {
-      throw new AppError('Недостаточно прав', 403);
-      }
-
       const { status, closure_scenario, ...additionalData } = req.body;
       const disc = await DiscrepancyService.updateDiscrepancyStatus(
         parseInt(req.params.id),
@@ -97,10 +85,6 @@ class DiscrepancyController {
   });
 
   static deleteDiscrepancy = asyncHandler(async (req, res) => {
-      if (!req.user || req.user.role !== 'admin') {
-      throw new AppError('Недостаточно прав', 403);
-      }
-
       const result = await DiscrepancyService.deleteDiscrepancy(parseInt(req.params.id));
       res.json({ success: true, message: result.message });
       });

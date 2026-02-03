@@ -7,9 +7,20 @@ const store = {
     products: [],
     masters: [],
     inspectors: [],
+    // Состояние фильтров для страниц
+    filters: {
+        applications: { status: 'all', lot_id: 'all' },
+        lots: { status: 'active' },
+        users: { status: 'active' },
+        products: { status: 'active' },
+        discrepancies: { status: 'all', severity: 'all' }
+    }
   },
 
-  // --- MUTATIONS (методы для изменения состояния) ---
+  // --- MUTATIONS ---
+  setFilters(page, newFilters) {
+    this.state.filters[page] = { ...this.state.filters[page], ...newFilters };
+  },
   setCurrentUser(user) { this.state.currentUser = user; },
   setUsers(users) { this.state.users = users; },
   setLots(lots) { this.state.lots = lots; },

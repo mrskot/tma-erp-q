@@ -1,9 +1,8 @@
 // public/js/pages/products.js
 import api from '../api.js';
 import store from '../store.js';
-import { ProductModal } from '../components/ProductModal.js';
 
-const productModal = new ProductModal();
+let productModal; // Ссылка на модалку
 let state = { filter: 'active' };
 
 async function loadDataAndUpdateView() {
@@ -34,7 +33,8 @@ function render() {
             </tr>`;
     }).join('');
 
-    document.getElementById('page-content').innerHTML = `
+    const container = document.getElementById('page-content');
+    container.innerHTML = `
         <div class="page-header"><h3>Управление изделиями</h3>
             <div class="page-controls">
                 <select class="page-filter">
@@ -78,14 +78,16 @@ function handlePageClick(event) {
     }
 }
 
-export async function init(container) {
+export async function init(container, modals) {
+    productModal = modals.product; // Получаем экземпляр
     container.innerHTML = `<h2>Загрузка...</h2>`;
-    container.removeEventListener('click', handlePageClick);
+    
     container.addEventListener('click', handlePageClick);
     container.addEventListener('change', e => {
         if (e.target.classList.contains('page-filter')) {
             state.filter = e.target.value; render();
         }
     });
+    
     await loadDataAndUpdateView();
 }

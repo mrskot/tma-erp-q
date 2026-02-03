@@ -85,6 +85,28 @@ class AuthManager {
     checkAuth() {
         return this.isAuthenticated;
     }
+    
+    getUser() {
+        // Берем пользователя из стора. Если там пусто, пробуем из localStorage
+        if (store.state.currentUser) return store.state.currentUser;
+        
+        const storedUser = localStorage.getItem('user_data');
+        if (storedUser) {
+            try {
+                return JSON.parse(storedUser);
+            } catch (e) {
+                return null;
+            }
+        }
+        return null;
+    }
+    
+    // Также можно добавить метод isAdmin для удобства
+    isAdmin() {
+        const user = this.getUser();
+        return user && user.role === 'admin';
+    }
+
 }
 
 const authManager = new AuthManager();

@@ -93,21 +93,30 @@ function handlePageClick(event) {
     }
 }
 
-export async function init(container, modals) {
-    userModal = modals.user; // Получаем экземпляр модального окна
-    container.innerHTML = `<h2>Загрузка...</h2>`;
-    
-    // Очищаем старые обработчики, чтобы не дублировались
-    const newContainer = container.cloneNode(true);
-    container.parentNode.replaceChild(newContainer, container);
-    
-    newContainer.addEventListener('click', handlePageClick);
-    newContainer.addEventListener('change', e => {
-        if (e.target.classList.contains('page-filter')) {
-            state.filter = e.target.value;
-            render();
-        }
-    });
+        let clickHandler = null;
+        let changeHandler = null;
+
+        export async function init(container, modals) {
+            userModal = modals.user; // Получаем экземпляр модального окна
+            container.innerHTML = `<h2>Загрузка...</h2>`;
+            
+            // Удаляем старые обработчики, если они были привязаны к этому контейнеру ранее
+            // Примечание: Это работает только если container - тот же самый DOM элемент
+            if (clickHandler) container.removeEventListener('click', clickHandler);
+            if (changeHandler) container.removeEventListener('change', changeHandler);
+
+            // Создаем новые обработчики
+            clickHandler = handlePageClick;
+            changeHandler = (e) => {
+                if (e.target.classList.contains('page-filter')) {
+                    state.filter = e.target.value;
+                    render();
+                }
+            };
+
+            // Привязываем
+            container.addEventListener('click', clickHandler);
+            container.addEventListener('change', changeHandler);
     
     await loadDataAndUpdateView();
 }

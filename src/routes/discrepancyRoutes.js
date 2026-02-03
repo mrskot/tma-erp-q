@@ -3,15 +3,18 @@ const router = express.Router();
 const { body, param } = require('express-validator');
 const DiscrepancyController = require('../controllers/discrepancyController');
 const { authenticateJWT } = require('../middleware/auth');
+const rbacMiddleware = require('../middleware/rbacMiddleware');
 
 const createDiscrepancyValidation = [
   body('title')
     .notEmpty().withMessage('Название обязательно')
     .isString().withMessage('Название должно быть строкой')
+    .trim().escape()
     .isLength({ min: 2, max: 255 }).withMessage('Название от 2 до 255 символов'),
   body('description')
     .optional()
-    .isString().withMessage('Описание должно быть строкой'),
+    .isString().withMessage('Описание должно быть строкой')
+    .trim().escape(),
   body('severity')
     .notEmpty().withMessage('Серьезность обязательна')
     .isIn(['low', 'medium', 'high', 'critical']).withMessage('Недопустимая серьезность'),
@@ -51,9 +54,10 @@ router.get('/severity/:severity', authenticateJWT, DiscrepancyController.getDisc
 router.get('/responsible/:responsibleId', authenticateJWT, param('responsibleId').isInt(), DiscrepancyController.getDiscrepanciesByResponsible);
 router.get('/application/:applicationId', authenticateJWT, param('applicationId').isInt(), DiscrepancyController.getDiscrepanciesByApplication);
 
-router.post('/', authenticateJWT, createDiscrepancyValidation, DiscrepancyController.createDiscrepancy);
-router.put('/:id', authenticateJWT, updateDiscrepancyValidation, DiscrepancyController.updateDiscrepancy);
-router.patch('/:id/status', authenticateJWT, updateStatusValidation, DiscrepancyController.updateDiscrepancyStatus);
-router.delete('/:id', authenticateJWT, param('id').isInt(), DiscrepancyController.deleteDiscrepancy);
+router.post('/', authenticateJWT, rbacMiddleware(['admin', 'inspector', 'director']), createDiscrepancyValidation, DiscrepancyController.createDiscrepancy);
+router.put('/:id', authenticateJWT, rbacMiddleware(['admin', 'inspector', 'director', 'master']), updateDiscrepancyValidation, DiscrepancyController.updateDiscrepancy);
+router.patch('/:id/status', authenticateJWT, rbacMiddleware(['admin', 'inspector', 'director', 'master']), updateStatusValidation, DiscrepancyController.updateDiscrepancyStatus);
+router.delete('/:id', authenticateJWT, rbacMiddleware(['admin']), param('id').isInt(), DiscrepancyController.deleteDiscrepancy);
 
 module.exports = router;
+

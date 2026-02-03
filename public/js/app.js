@@ -3,35 +3,34 @@ import authManager from './auth.js';
 import store from './store.js';
 import api from './api.js';
 
-// Импортируем классы модальных окон
 import { UserModal } from './components/UserModal.js';
 import { LotModal } from './components/LotModal.js';
 import { ProductModal } from './components/ProductModal.js';
-// ... импорты других модалок
+import { ApplicationModal } from './components/ApplicationModal.js';
+import { ApplicationDetailsModal } from './components/ApplicationDetailsModal.js';
+import { DiscrepancyModal } from './components/DiscrepancyModal.js';
 
-// Импортируем модули страниц
 import * as dashboardPage from './pages/dashboard.js';
 import * as usersPage from './pages/users.js';
 import * as lotsPage from './pages/lots.js';
 import * as productsPage from './pages/products.js';
+import * as applicationsPage from './pages/applications.js';
 
-// ... (константы ROLES_CONFIG и PAGE_NAMES без изменений)
 const ROLES_CONFIG = {
-    admin: { defaultPage: 'dashboard', allowedPages: ['dashboard', 'users', 'lots', 'products'], name: 'Администратор' },
+    admin: { defaultPage: 'dashboard', allowedPages: ['dashboard', 'users', 'lots', 'products', 'applications', 'discrepancies'], name: 'Администратор' },
     director: { defaultPage: 'dashboard', allowedPages: ['dashboard', 'applications', 'discrepancies'], name: 'Директор' },
-    inspector: { defaultPage: 'dashboard', allowedPages: ['dashboard', 'applications'], name: 'Контролёр ОТК' },
-    master: { defaultPage: 'dashboard', allowedPages: ['dashboard', 'applications'], name: 'Мастер' },
-    worker: { defaultPage: 'dashboard', allowedPages: ['dashboard'], name: 'Рабочий' },
+    inspector: { defaultPage: 'dashboard', allowedPages: ['dashboard', 'applications', 'discrepancies'], name: 'Контролёр ОТК' },
+    master: { defaultPage: 'dashboard', allowedPages: ['dashboard', 'applications', 'discrepancies'], name: 'Мастер' },
+    worker: { defaultPage: 'applications', allowedPages: ['applications'], name: 'Рабочий' },
 };
+
 const PAGE_NAMES = {
     dashboard: 'Главная', users: 'Пользователи', lots: 'Участки',
     products: 'Изделия', applications: 'Заявки', discrepancies: 'Несоответствия',
 };
 
-
 class App {
     constructor() {
-        // ... (все DOM элементы без изменений)
         this.loadingScreen = document.getElementById('loading-screen');
         this.loginScreen = document.getElementById('login-screen');
         this.mainApp = document.getElementById('main-app');
@@ -43,12 +42,14 @@ class App {
         this.nav = document.querySelector('#main-app nav');
         this.pageContent = document.getElementById('page-content');
         
-        // **КЛЮЧЕВОЕ ИЗМЕНЕНИЕ: Создаем все модалки ОДИН РАЗ ЗДЕСЬ**
+        // Создаем модалки один раз
         this.modals = {
             user: new UserModal(),
             lot: new LotModal(),
             product: new ProductModal(),
-            // ... здесь будут другие
+            application: new ApplicationModal(),
+            applicationDetails: new ApplicationDetailsModal(),
+            discrepancy: new DiscrepancyModal(),
         };
 
         this.pages = {
@@ -56,6 +57,7 @@ class App {
             users: usersPage,
             lots: lotsPage,
             products: productsPage,
+            applications: applicationsPage,
         };
         this.init();
     }
@@ -67,8 +69,44 @@ class App {
         await this.updateViewState();
     }
 
+    // Методы для управления модалками дефектов
+    openCreateDiscrepancyModal(applicationId, onSaveCallback) {
+        this.modals.discrepancy.show({
+            mode: 'create',
+            applicationId,
+            onSave: async (payload) => {
+                const res = await api.createDiscrepancy(payload);
+                if (res.success) {
+                    this.modals.discrepancy.hide();
+                    if (onSaveCallback) await onSaveCallback(res.data);
+                } else {
+                    alert('Ошибка при создании: ' + res.message);
+                }
+            }
+        });
+    }
+
+    async openEditDiscrepancyModal(discrepancyId, onSaveCallback) {
+        const res = await api.getDiscrepancyById(discrepancyId);
+        if (res.success) {
+            this.modals.discrepancy.show({
+                mode: 'edit',
+                discrepancyData: res.data,
+                onSave: async (payload) => {
+                    // Обработка сохранения изменений (например, срока или описания)
+                    const updateRes = await api.updateDiscrepancy(discrepancyId, payload);
+                    if (updateRes.success) {
+                        this.modals.discrepancy.hide();
+                        if (onSaveCallback) await onSaveCallback(updateRes.data);
+                    } else {
+                        alert('Ошибка при обновлении: ' + updateRes.message);
+                    }
+                }
+            });
+        }
+    }
+
     async updateViewState() {
-        // ... (функция без изменений, она уже правильная)
         this.loadingScreen.classList.remove('hidden');
         const isAuth = await authManager.loadProfileOnRefresh();
         this.loadingScreen.classList.add('hidden');
@@ -78,11 +116,17 @@ class App {
             this.mainApp.classList.remove('hidden');
 
             const user = store.state.currentUser;
-            const roleConfig = ROLES_CONFIG[user.role] || { defaultPage: 'dashboard', allowedPages: ['dashboard'], name: 'Неизвестная роль' };
+            const roleConfig = ROLES_CONFIG[user.role] || { defaultPage: 'dashboard', allowedPages: [], name: 'Неизвестная роль' };
 
             this.userInfo.textContent = `${user.first_name} (${roleConfig.name})`;
             this.renderNavigation(roleConfig.allowedPages);
-            this.showPage(roleConfig.defaultPage);
+            
+            const currentHash = location.hash.slice(1);
+            if (roleConfig.allowedPages.includes(currentHash)) {
+                this.showPage(currentHash);
+            } else {
+                this.showPage(roleConfig.defaultPage);
+            }
         } else {
             this.mainApp.classList.add('hidden');
             this.loginScreen.classList.remove('hidden');
@@ -91,7 +135,6 @@ class App {
     }
 
     renderNavigation(allowedPages) {
-        // ... (функция без изменений)
         const links = allowedPages.map(pageKey => {
             const pageName = PAGE_NAMES[pageKey] || pageKey;
             return `<a href="#${pageKey}" data-page="${pageKey}">${pageName}</a>`;
@@ -100,7 +143,6 @@ class App {
     }
     
     async handleLogin(e) {
-        // ... (функция без изменений)
         e.preventDefault();
         this.loginError.classList.add('hidden');
         const result = await authManager.login(this.pinInput.value);
@@ -124,9 +166,17 @@ class App {
     showPage(pageName) {
         this.nav.querySelectorAll('a').forEach(a => a.classList.toggle('active', a.dataset.page === pageName));
         const pageModule = this.pages[pageName];
-        if (pageModule?.init) {
+        
+        if (pageModule && pageModule.init) {
             history.pushState(null, '', `#${pageName}`);
-            // **КЛЮЧЕВОЕ ИЗМЕНЕНИЕ: Передаем все модалки в страницу**
+            
+            // === МАГИЯ ЗДЕСЬ ===
+            // Клонируем контейнер без дочерних элементов (false), чтобы убить всех слушателей событий
+            const newContent = this.pageContent.cloneNode(false);
+            this.pageContent.parentNode.replaceChild(newContent, this.pageContent);
+            this.pageContent = newContent; // Обновляем ссылку на актуальный элемент
+            // ===================
+
             pageModule.init(this.pageContent, this.modals);
         } else {
             this.pageContent.innerHTML = `<h2>Страница "${PAGE_NAMES[pageName] || pageName}" в разработке.</h2>`;

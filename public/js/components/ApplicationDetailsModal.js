@@ -1,8 +1,8 @@
 /**
  * Modal for viewing application details and taking actions
  */
-import { api } from '../api.js';
-import { authManager } from '../auth.js';
+import api from '../api.js'; 
+import authManager from '../auth.js'; // Default import без фигурных скобок
 import { UI } from './UIComponents.js';
 
 export class ApplicationDetailsModal {
@@ -120,7 +120,9 @@ export class ApplicationDetailsModal {
             if (response.success && response.data.length > 0) {
                 response.data.forEach(disc => {
                     const card = UI.createDiscrepancyCard(disc, (d) => {
-                        window.app.openEditDiscrepancyModal(d.id);
+                        window.app.openEditDiscrepancyModal(d.id, async () => {
+                            await this.refreshDiscrepancies(applicationId);
+                        });
                     });
                     this.discList.appendChild(card);
                 });

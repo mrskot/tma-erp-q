@@ -1,7 +1,6 @@
 // public/js/components/ApplicationModal.js
-
-import { api } from '../api.js';
-import { authManager } from '../auth.js';
+import api from '../api.js'; // Default import
+import authManager from '../auth.js'; // Default import
 
 export class ApplicationModal {
     constructor() {
@@ -16,7 +15,7 @@ export class ApplicationModal {
         
         // --- Элементы формы ---
         this.productIdSelect = document.getElementById('app-product-id');
-        this.productionOrderInput = document.getElementById('app-production-order'); // № Заказа
+        this.productionOrderInput = document.getElementById('app-production-order'); 
         this.drawingNumberInput = document.getElementById('app-drawing-number');
         this.desiredTimeInput = document.getElementById('app-desired-time');
         this.quantityInput = document.getElementById('app-quantity');
@@ -29,9 +28,9 @@ export class ApplicationModal {
         
         this.onSave = null;
         this.editMode = false;
-        this.lotsCache = []; // Кэш для логики выбора мастера
-        this.mastersCache = []; // Кэш для мастеров
-        this.productsCache = []; // Кэш для изделий
+        this.lotsCache = [];
+        this.mastersCache = [];
+        this.productsCache = [];
 
         this.attachEventListeners();
     }
@@ -41,21 +40,14 @@ export class ApplicationModal {
         this.closeButton.addEventListener('click', () => this.hide());
         this.quantityInput.addEventListener('input', () => this.renderSerialInputs());
         this.hasSerialsCheckbox.addEventListener('change', () => this.toggleSerialsContainer());
-        // Реагируем на изменение участка, чтобы подставить мастера
         this.lotIdSelect.addEventListener('change', () => this.handleLotChange());
     }
 
-    // --- Логика авто-заполнения ---
     handleLotChange() {
         const lotId = parseInt(this.lotIdSelect.value);
-        console.log('handleLotChange - lotId:', lotId);
-        
-        // 1. Фильтрация изделий по участку
         this.filterProductsByLot(lotId);
 
-        if (this.masterIdSelect.disabled) {
-            return; // Не меняем мастера, если текущий пользователь - мастер
-        }
+        if (this.masterIdSelect.disabled) return;
         
         if (!lotId || !this.lotsCache) {
             this.masterIdSelect.value = '';
@@ -64,8 +56,15 @@ export class ApplicationModal {
 
         const selectedLot = this.lotsCache.find(l => l.id === lotId);
         if (selectedLot) {
+            // Исправленная логика: ищем main_master_id в объекте лота
             const masterId = selectedLot.temp_master_id || selectedLot.main_master_id;
-            this.masterIdSelect.value = masterId || '';
+            // Проверяем, есть ли такой мастер в списке option
+            const optionExists = Array.from(this.masterIdSelect.options).some(o => o.value == masterId);
+            if (optionExists) {
+                this.masterIdSelect.value = masterId;
+            } else {
+                this.masterIdSelect.value = '';
+            }
         } else {
             this.masterIdSelect.value = '';
         }
@@ -76,7 +75,6 @@ export class ApplicationModal {
             this.populateSelect(this.productIdSelect, [], { placeholder: 'Сначала выберите участок' });
             return;
         }
-
         const filteredProducts = this.productsCache.filter(p => p.is_active && p.lot_id === lotId);
         this.populateSelect(this.productIdSelect, filteredProducts, { 
             valueField: 'id', 
@@ -84,8 +82,6 @@ export class ApplicationModal {
             placeholder: filteredProducts.length > 0 ? 'Выберите изделие' : 'На этом участке нет изделий' 
         });
     }
-    
-    // --- Логика рендеринга динамических полей ---
     
     toggleSerialsContainer() {
         const show = this.hasSerialsCheckbox.checked;
@@ -118,8 +114,6 @@ export class ApplicationModal {
         this.serialsContainer.appendChild(fragment);
     }
 
-    // --- Заполнение Select'ов ---
-
     populateSelect(selectElement, items, { valueField, textField, nameField, placeholder }) {
         selectElement.innerHTML = `<option value="">${placeholder}</option>`;
         items.forEach(item => {
@@ -132,35 +126,24 @@ export class ApplicationModal {
 
     async fetchDataIfNeeded() {
         try {
-            // Загружаем данные только если кэш пуст
-            if (this.productsCache.length === 0) {
-                const response = await api.getProducts();
-                // Handle both direct array and wrapped response
-                this.productsCache = response.data || (Array.isArray(response) ? response : []);
-                console.log('Products loaded:', this.productsCache);
-            }
-            if (this.mastersCache.length === 0) {
-                const response = await api.getUsersByRole('master');
-                // Handle both direct array and wrapped response
-                this.mastersCache = response.data || (Array.isArray(response) ? response : []);
-                console.log('Masters loaded:', this.mastersCache);
-            }
-            if (this.lotsCache.length === 0) {
-                const response = await api.getLotsWithMasters('active');
-                console.log('Raw lots data:', response);
-                // Handle both direct array and wrapped response
-                this.lotsCache = response.data || (Array.isArray(response) ? response : []);
-                console.log('Lots loaded and cached:', this.lotsCache);
-            }
+            // Параллельная загрузка
+            const [productsRes, mastersRes, lotsRes] = await Promise.all([
+                api.getProducts(),
+                api.getUsersByRole('master'), // Используем специальный метод
+                api.getLotsWithMasters('active')
+            ]);
+
+            this.productsCache = productsRes.data || [];
+            this.mastersCache = mastersRes.data || [];
+            this.lotsCache = lotsRes.data || [];
+            
+            return true;
         } catch (error) {
             console.error('Failed to fetch data for application modal:', error);
-            alert('Не удалось загрузить данные для создания заявки. Пожалуйста, обновите страницу.');
+            alert('Не удалось загрузить справочные данные. Проверьте консоль.');
             return false;
         }
-        return true;
     }
-
-    // --- Основные методы модального окна ---
 
     async show({ mode = 'create', onSave = () => {} }) {
         this.onSave = onSave;
@@ -172,42 +155,36 @@ export class ApplicationModal {
         
         this.title.textContent = 'Создать партию заявок';
         
-        const currentUser = authManager.getUser();
+        const currentUser = authManager.getUser(); // Метод из authManager, не auth
         const isMaster = currentUser && currentUser.role === 'master';
 
-        // 1. Заполняем селекты с изделиями и мастерами
+        // Заполняем списки
         const activeProducts = this.productsCache.filter(p => p.is_active);
         const activeMasters = this.mastersCache.filter(m => m.is_active);
         const activeLots = this.lotsCache.filter(l => l.is_active);
 
-        this.populateSelect(this.productIdSelect, activeProducts, { valueField: 'id', textField: 'name', placeholder: 'Выберите изделие' });
+        // Изначально продукт пустой
+        this.populateSelect(this.productIdSelect, [], { placeholder: 'Сначала выберите участок' });
         this.populateSelect(this.masterIdSelect, activeMasters, { valueField: 'id', textField: 'first_name', nameField: 'last_name', placeholder: 'Выберите мастера' });
 
-        // 2. Настраиваем поля в зависимости от роли
         this.masterIdSelect.disabled = isMaster;
 
         if (isMaster) {
             this.masterIdSelect.value = currentUser.id; 
-
             const masterLots = activeLots.filter(lot =>
                 lot.main_master_id === currentUser.id || lot.temp_master_id === currentUser.id
             );
             this.populateSelect(this.lotIdSelect, masterLots, { valueField: 'id', textField: 'name', placeholder: 'Выберите ваш участок' });
             
-            // Если у мастера только один участок, выбираем его сразу
             if (masterLots.length === 1) {
                 this.lotIdSelect.value = masterLots[0].id;
                 this.handleLotChange();
             }
         } else {
-            // СЦЕНАРИЙ 2: Пользователь - Админ или другая роль
-            this.populateSelect(this.lotIdSelect, activeLots, { valueField: 'id', textField: 'name', placeholder: 'Сначала выберите участок' });
-            this.masterIdSelect.value = ''; // Мастер подставится после выбора участка
+            this.populateSelect(this.lotIdSelect, activeLots, { valueField: 'id', textField: 'name', placeholder: 'Выберите участок' });
+            this.masterIdSelect.value = '';
         }
         
-        // 3. Сбрасываем значения и отрисовываем динамические поля
-        this.lotIdSelect.value = '';
-        this.handleLotChange(); // Вызываем, чтобы сбросить мастера
         this.hasSerialsCheckbox.checked = true;
         this.toggleSerialsContainer();
         this.quantityInput.value = 1;
@@ -255,9 +232,8 @@ export class ApplicationModal {
             notes: this.notesTextarea.value.trim()
         };
         
-        // Простая валидация
         if (!batchData.product_id || !batchData.lot_id || !batchData.master_id || !batchData.desired_inspection_time || !batchData.quantity) {
-            alert('Все поля, кроме заметок, номера чертежа и серийных номеров, обязательны.');
+            alert('Заполните обязательные поля!');
             return;
         }
 
@@ -269,7 +245,7 @@ export class ApplicationModal {
                  await this.onSave(batchData);
             }
         } catch (error) {
-            console.error('Ошибка при сохранении партии заявок:', error);
+            console.error('Ошибка:', error);
             alert(`Не удалось сохранить: ${error.message}`);
         } finally {
             submitButton.disabled = false;

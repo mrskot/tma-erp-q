@@ -1,51 +1,25 @@
 const db = require('../config/database');
+const BaseModel = require('./BaseModel');
 
-class Lot {
-  static async findAllWithMasterIds(limit = 100, offset = 0) {
-    return db('lots')
-      .select('lots.*') // Выбираем все поля из таблицы lots
-      .where('lots.is_active', true)
-      .orderBy('lots.priority', 'asc')
-      .orderBy('lots.name', 'asc')
-      .limit(limit)
-      .offset(offset);
+class Lot extends BaseModel {
+  constructor() {
+    super('lots');
   }
 
-  // Получить участок по ID
-  static async findById(id) {
-    return db('lots')
-      .where({ id, is_active: true })
-      .first();
-  }
-
-  // Получить все активные участки
-  static async findAll(limit = 100, offset = 0, status = 'active') {
-    const query = db('lots');
-
-    if (status === 'active') {
-      query.where({ is_active: true });
-    } else if (status === 'inactive') {
-      query.where({ is_active: false });
-    }
-    // Если status === 'all', фильтр по is_active не применяется
-
-    return query
-      .orderBy('priority', 'asc')
-      .orderBy('name', 'asc')
-      .limit(limit)
-      .offset(offset);
-  }
-
-  // Получить участок по коду
-  static async findByCode(code) {
-    return db('lots')
+  /**
+   * Специфичный метод: поиск по коду
+   */
+  async findByCode(code) {
+    return this.db(this.tableName)
       .where({ code, is_active: true })
       .first();
   }
 
-  // Получить участки по мастеру
-  static async findByMaster(masterId) {
-    return db('lots')
+  /**
+   * Специфичный метод: поиск по мастеру
+   */
+  async findByMaster(masterId) {
+    return this.db(this.tableName)
       .where({ is_active: true })
       .where(function() {
         this.where('main_master_id', masterId)
@@ -54,49 +28,11 @@ class Lot {
       .orderBy('priority', 'asc');
   }
 
-  // Создать новый участок
-  static async create(lotData) {
-    const [lot] = await db('lots')
-      .insert(lotData)
-      .returning('*');
-    return lot;
-  }
-
-  // Обновить участок
-  static async update(id, lotData) {
-    const [lot] = await db('lots')
-      .where({ id })
-      .update({
-        ...lotData,
-        updated_at: db.fn.now()
-      })
-      .returning('*');
-    return lot;
-  }
-
-  // Удалить участок (soft delete)
-  static async delete(id) {
-    return db('lots')
-      .where({ id })
-      .update({
-        is_active: false,
-        updated_at: db.fn.now()
-      });
-  }
-
-  // Восстановить участок
-  static async reactivate(id) {
-    return db('lots')
-      .where({ id })
-      .update({
-        is_active: true,
-        updated_at: db.fn.now()
-      });
-  }
-
-  // Получить участок с информацией о мастерах
-  static async findByIdWithMasters(id) {
-    const lot = await db('lots')
+  /**
+   * Специфичный метод: участок с информацией о мастерах
+   */
+  async findByIdWithMasters(id) {
+    const lot = await this.db(this.tableName)
       .where({ 'lots.id': id, 'lots.is_active': true })
       .leftJoin('users as main_master', 'lots.main_master_id', 'main_master.id')
       .leftJoin('users as temp_master', 'lots.temp_master_id', 'temp_master.id')
@@ -113,7 +49,6 @@ class Lot {
 
     if (!lot) return null;
 
-    // Форматируем результат
     return {
       ...lot,
       main_master: lot.main_master_id ? {
@@ -131,17 +66,17 @@ class Lot {
     };
   }
 
-  // Получить все участки с информацией о мастерах
-  // Возвращает плоскую структуру с ID мастеров для удобства на фронте
-  static async findAllWithMasters(limit = 100, offset = 0, status = 'active') {
-    const query = db('lots');
+  /**
+   * Специфичный метод: все участки с информацией о мастерах
+   */
+  async findAllWithMasters(limit = 100, offset = 0, status = 'active') {
+    const query = this.db(this.tableName);
 
     if (status === 'active') {
       query.where({ 'lots.is_active': true });
     } else if (status === 'inactive') {
       query.where({ 'lots.is_active': false });
     }
-    // Если status === 'all', фильтр не применяется
     
     const lots = await query
       .leftJoin('users as main_master', 'lots.main_master_id', 'main_master.id')
@@ -162,10 +97,8 @@ class Lot {
 
     return lots.map(lot => ({
       ...lot,
-      // Плоские поля для фронта (удобство)
       main_master_name: lot.main_master_id ? `${lot.main_master_first_name} ${lot.main_master_last_name}` : null,
       temp_master_name: lot.temp_master_id ? `${lot.temp_master_first_name} ${lot.temp_master_last_name}` : null,
-      // Объекты мастеров для полной информации
       main_master: lot.main_master_id ? {
         id: lot.main_master_id,
         first_name: lot.main_master_first_name,
@@ -181,45 +114,47 @@ class Lot {
     }));
   }
 
-  // Подсчёт активных участков
+  // Статические обертки для совместимости
+  static async findById(id) { return new Lot().findById(id); }
+  static async findByCode(code) { return new Lot().findByCode(code); }
+  static async findByMaster(masterId) { return new Lot().findByMaster(masterId); }
+  static async create(data) { return new Lot().create(data); }
+  static async update(id, data) { return new Lot().update(id, data); }
+  static async delete(id) { return new Lot().delete(id); }
+  static async reactivate(id) { return new Lot().restore(id); }
+  static async findByIdWithMasters(id) { return new Lot().findByIdWithMasters(id); }
+  static async findAllWithMasters(limit, offset, status) { return new Lot().findAllWithMasters(limit, offset, status); }
+  
   static async count(status = 'active') {
-    const query = db('lots');
-    
+    const includeInactive = status === 'all';
+    const filters = {};
+    if (status === 'inactive') filters.is_active = false;
+    return new Lot().count(filters, includeInactive);
+  }
+
+  static async assignTempMaster(lotId, tempMasterId) {
+    return new Lot().update(lotId, { temp_master_id: tempMasterId });
+  }
+
+  static async removeTempMaster(lotId) {
+    return new Lot().update(lotId, { temp_master_id: null });
+  }
+
+  static async findAll(limit = 100, offset = 0, status = 'active') {
+    const instance = new Lot();
+    const query = instance.db(instance.tableName);
+
     if (status === 'active') {
       query.where({ is_active: true });
     } else if (status === 'inactive') {
       query.where({ is_active: false });
     }
-    // Если status === 'all', фильтр не применяется
 
-    const result = await query
-      .count('id as count')
-      .first();
-    return parseInt(result.count, 10);
-  }
-
-  // Назначить временного мастера
-  static async assignTempMaster(lotId, tempMasterId) {
-    const [lot] = await db('lots')
-      .where({ id: lotId })
-      .update({
-        temp_master_id: tempMasterId,
-        updated_at: db.fn.now()
-      })
-      .returning('*');
-    return lot;
-  }
-
-  // Удалить временного мастера (вернуть к основному)
-  static async removeTempMaster(lotId) {
-    const [lot] = await db('lots')
-      .where({ id: lotId })
-      .update({
-        temp_master_id: null,
-        updated_at: db.fn.now()
-      })
-      .returning('*');
-    return lot;
+    return query
+      .orderBy('priority', 'asc')
+      .orderBy('name', 'asc')
+      .limit(limit)
+      .offset(offset);
   }
 }
 

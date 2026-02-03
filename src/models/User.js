@@ -1,82 +1,47 @@
 const db = require('../config/database');
+const BaseModel = require('./BaseModel');
 
-class User {
-  static async findByTelegramId(telegramId) {
-    return db('users')
+class User extends BaseModel {
+  constructor() {
+    super('users');
+  }
+
+  /**
+   * Специфичный метод: поиск по Telegram ID
+   */
+  async findByTelegramId(telegramId) {
+    return this.db(this.tableName)
       .where({ telegram_id: telegramId, is_active: true })
       .first();
   }
 
-  static async findById(id) {
-    return db('users')
-      .where({ id, is_active: true })
-      .first();
+  /**
+   * Специфичный метод: поиск по роли
+   */
+  async findByRole(role, limit = 100) {
+    return this.findAll({
+       limit,
+       filters: { role }
+     });
   }
 
-  static async findAll(limit = 100, offset = 0, status = 'active') {
-    const query = db('users');
-
-    if (status === 'active') {
-      query.where({ is_active: true });
-    } else if (status === 'inactive') {
-      query.where({ is_active: false });
-    }
-    // Если status === 'all', то фильтр не применяется
-
-    return query
-      .limit(limit)
-      .offset(offset)
-      .orderBy('created_at', 'desc');
-  }
-
-  static async create(userData) {
-    const [user] = await db('users')
-      .insert(userData)
-      .returning('*');
-    return user;
-  }
-
-  static async update(id, userData) {
-    const [user] = await db('users')
+  /**
+   * Специфичный метод: обновление времени входа
+   */
+  async updateLastLogin(id) {
+    return this.db(this.tableName)
       .where({ id })
       .update({
-        ...userData,
-        updated_at: db.fn.now()
-      })
-      .returning('*');
-    return user;
-  }
-
-  static async delete(id) {
-    return db('users')
-      .where({ id })
-      .update({ is_active: false, updated_at: db.fn.now() });
-  }
-
-  static async reactivate(id) {
-    return db('users')
-      .where({ id })
-      .update({ is_active: true, updated_at: db.fn.now() });
-  }
-
-  static async findByRole(role, limit = 100) {
-    return db('users')
-      .where({ role, is_active: true })
-      .limit(limit)
-      .orderBy('created_at', 'desc');
-  }
-
-  static async updateLastLogin(id) {
-    return db('users')
-      .where({ id })
-      .update({
-        last_login_at: db.fn.now(),
-        updated_at: db.fn.now()
+        last_login_at: this.db.fn.now(),
+        updated_at: this.db.fn.now()
       });
   }
 
-  static async verifyPinCode(telegramId, pinCode) {
-    const user = await db('users')
+  /**
+   * Специфичный метод: проверка PIN
+   */
+  async verifyPinCode(telegramId, pinCode) {
+    const user = await this.db(this.tableName)
       .where({ telegram_id: telegramId, pin_code: pinCode, is_active: true })
       .first();
     
@@ -87,21 +52,40 @@ class User {
     return null;
   }
 
-  static async count(status = 'active') {
-    const query = db('users');
+  // Переопределение findAll для совместимости с текущим API контроллера,
+  // который ожидает сигнатуру (limit, offset, status)
+  static async findAll(limit = 100, offset = 0, status = 'active') {
+    const instance = new User();
+    const includeInactive = status === 'all' || status === 'inactive';
 
-    if (status === 'active') {
-      query.where({ is_active: true });
-    } else if (status === 'inactive') {
-      query.where({ is_active: false });
+    if (status === 'inactive') {
+        return instance.db(instance.tableName)
+            .where('is_active', false)
+            .limit(limit)
+            .offset(offset)
+            .orderBy('created_at', 'desc');
     }
-    // Если status === 'all', фильтр не применяется
 
-    const result = await query
-      .count('id as count')
-      .first();
-    return parseInt(result.count, 10);
+    return instance.findAll({
+         limit,
+         offset,
+         includeInactive: status === 'all'
+     });
   }
-}
 
+  // Статические обертки для совместимости с сервисами,
+  // которые вызывают User.findById вместо new User().findById
+  static async findById(id) { return new User().findById(id); }
+  static async findByTelegramId(id) { return new User().findByTelegramId(id); }
+  static async create(data) { return new User().create(data); }
+  static async update(id, data) { return new User().update(id, data); }
+  static async delete(id) { return new User().delete(id); }
+  static async reactivate(id) { return new User().restore(id); }
+  static async findByRole(role) { return new User().findByRole(role); }
+  static async verifyPinCode(tgId, pin) { return new User().verifyPinCode(tgId, pin); }
+  static async count(status) {
+       const includeInactive = status === 'all';
+       return new User().count({}, includeInactive);
+   }
+}
 module.exports = User;

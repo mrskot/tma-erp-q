@@ -86,7 +86,196 @@
             </div>
         </div>
 
-        <!-- Остальные модалки (Applications, Discrepancies) можно добавить сюда по аналогии -->
+        <!-- Модалка Заявок (Application) -->
+        <div id="application-modal" class="modal">
+            <div class="modal-content large">
+                <span class="close">&times;</span>
+                <h2 class="modal-title">Создать партию заявок</h2>
+                <form id="application-form">
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label>№ Произв. заказа:</label>
+                            <input type="text" id="app-production-order" name="production_order_number" required>
+                        </div>
+                        <div class="form-group">
+                            <label>Участок:</label>
+                            <select id="app-lot-id" name="lot_id" required></select>
+                        </div>
+                        <div class="form-group">
+                            <label>Мастер:</label>
+                            <select id="app-master-id" name="master_id" required></select>
+                        </div>
+                        <div class="form-group">
+                            <label>Изделие:</label>
+                            <select id="app-product-id" name="product_id" required></select>
+                        </div>
+                        <div class="form-group">
+                            <label>Номер чертежа:</label>
+                            <input type="text" id="app-drawing-number" name="drawing_number">
+                        </div>
+                        <div class="form-group">
+                            <label>Количество (шт):</label>
+                            <input type="number" id="app-quantity" name="quantity" min="1" value="1" required>
+                        </div>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label><input type="checkbox" id="app-has-serials" name="has_serial_numbers" checked> Указать серийные номера</label>
+                    </div>
+                    
+                    <div id="app-serials-container" class="serials-grid"></div>
+                    
+                    <div class="form-group">
+                        <label>Желаемый срок приёмки:</label>
+                        <input type="datetime-local" id="app-desired-time" name="desired_inspection_time" required>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Заметки:</label>
+                        <textarea id="app-notes" name="notes" rows="2"></textarea>
+                    </div>
+                    
+                    <!-- Скрытое поле для фото (пока так) -->
+                    <input type="hidden" id="app-mki-photo" name="mki_photo_url">
+                    
+                    <button type="submit" class="button">Создать заявки</button>
+                </form>
+            </div>
+        </div>
+
+        <!-- Модалка Деталей Заявки (Application Details) -->
+        <div id="application-details-modal" class="modal">
+            <div class="modal-content">
+                <span class="close">&times;</span>
+                <h2 class="modal-title">Детали заявки</h2>
+                <div id="app-details-content">
+                    <div class="details-section">
+                        <!-- Сюда JS вставит данные: номер, статус и т.д. -->
+                        <div style="margin-bottom: 10px;"><strong>Номер:</strong> <span id="view-app-number"></span></div>
+                        <div style="margin-bottom: 5px;">Заказ: <span id="view-app-order"></span></div>
+                        <div style="margin-bottom: 5px;">Изделие: <span id="view-app-product"></span></div>
+                        <div style="margin-bottom: 5px;">Чертеж: <span id="view-app-drawing"></span></div>
+                        <div style="margin-bottom: 5px;">Сер. номер: <span id="view-app-serial"></span></div>
+                        <div style="margin-bottom: 5px;">Мастер: <span id="view-app-master"></span></div>
+                        <div style="margin-bottom: 5px;">Участок: <span id="view-app-lot"></span></div>
+                        <div style="margin-bottom: 5px;">Статус: <span id="view-app-status"></span></div>
+                    </div>
+                    
+                    <!-- Секция чек-листа -->
+                    <div id="view-app-checklist-section" style="margin-top: 15px; display: none;">
+                        <h4>Чек-лист:</h4>
+                        <div id="view-app-checklist-items"></div>
+                    </div>
+
+                    <!-- Секция МКИ -->
+                    <div id="view-app-mki-section" style="margin-top: 15px; display: none;">
+                        <h4>Фото МКИ:</h4>
+                        <img id="view-app-mki-img" src="" style="max-width: 100%;">
+                    </div>
+
+                    <!-- Секция несоответствий -->
+                    <div style="margin-top: 15px;">
+                        <h4>Несоответствия:</h4>
+                        <div id="view-app-discrepancies-list"></div>
+                    </div>
+
+                    <!-- Кнопки действий -->
+                    <div id="view-app-actions" style="margin-top: 20px; display: flex; gap: 10px; flex-wrap: wrap;"></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Модалка Несоответствий (Discrepancy) -->
+        <div id="discrepancy-modal" class="modal">
+            <div class="modal-content">
+                <span class="close">&times;</span>
+                <h2 class="modal-title">Несоответствие</h2>
+                <form id="discrepancy-form">
+                    <input type="hidden" name="id">
+                    <input type="hidden" name="application_id">
+                    
+                    <div id="disc-app-info" style="margin-bottom: 10px; font-weight: bold;">
+                        Заявка: <span id="disc-app-number-val"></span>
+                    </div>
+
+                    <div class="form-group">
+                        <label>Краткое описание:</label>
+                        <input type="text" name="title" required>
+                    </div>
+                    <div class="form-group">
+                        <label>Подробное описание:</label>
+                        <textarea name="description" rows="3"></textarea>
+                    </div>
+                    <div class="form-group">
+                        <label>Серьезность:</label>
+                        <select name="severity">
+                            <option value="low">Низкая</option>
+                            <option value="medium" selected>Средняя</option>
+                            <option value="high">Высокая</option>
+                            <option value="critical">Критическая</option>
+                        </select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Фото дефекта (URL):</label>
+                        <input type="text" id="disc-photo" name="defect_photo_url">
+                    </div>
+
+                    <div class="form-group">
+                        <label>Ответственный:</label>
+                        <select id="disc-responsible" name="responsible_id"></select>
+                    </div>
+                    
+                    <div class="form-group">
+                        <label>Срок устранения:</label>
+                        <input type="datetime-local" id="disc-due-date" name="due_date">
+                    </div>
+
+                    <!-- Поля статуса (видны только контролеру) -->
+                    <div class="form-group">
+                        <label>Статус:</label>
+                        <select id="disc-status" name="status">
+                            <option value="new">Новое</option>
+                            <option value="assigned">Назначено</option>
+                            <option value="in_progress">В работе</option>
+                            <option value="resolved">Устранено</option>
+                            <option value="closed">Закрыто</option>
+                        </select>
+                    </div>
+
+                    <!-- Сценарий закрытия -->
+                    <div id="closure-scenario-group" class="form-group" style="display:none;">
+                        <label>Сценарий закрытия:</label>
+                        <select id="disc-scenario" name="closure_scenario">
+                            <option value="fixed">Устранено</option>
+                            <option value="resolution_card">Карточка разрешения</option>
+                            <option value="political">Полит. решение</option>
+                            <option value="scrap">Брак</option>
+                        </select>
+                    </div>
+                    
+                    <div id="scenario-details-group" class="form-group" style="display:none;">
+                        <label>Детали решения:</label>
+                        <textarea name="details"></textarea>
+                    </div>
+
+                    <!-- Поля мастера -->
+                    <div id="master-action-fields" style="display:none; border-top: 1px solid #ccc; padding-top: 10px;">
+                        <div class="form-group">
+                            <label>Фото устранения:</label>
+                            <input type="text" name="fix_photo_url">
+                        </div>
+                        <div class="form-group" id="special-opinion-group">
+                            <label>Особое мнение:</label>
+                            <textarea id="disc-special-opinion" name="special_opinion"></textarea>
+                        </div>
+                    </div>
+
+                    <div id="discrepancy-actions" style="margin-top: 15px;"></div>
+                    <button type="submit" class="button">Сохранить</button>
+                </form>
+            </div>
+        </div>
     </div>
     
     <script src="/js/app.js" type="module"></script>
