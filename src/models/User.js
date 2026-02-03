@@ -6,6 +6,8 @@ class User extends BaseModel {
     super('users');
   }
 
+  static instance = new User();
+
   /**
    * Специфичный метод: поиск по Telegram ID
    */
@@ -19,10 +21,7 @@ class User extends BaseModel {
    * Специфичный метод: поиск по роли
    */
   async findByRole(role, limit = 100) {
-    return this.findAll({
-       limit,
-       filters: { role }
-     });
+    return this.findAll({ filters: { role }, limit });
   }
 
   /**
@@ -52,40 +51,27 @@ class User extends BaseModel {
     return null;
   }
 
-  // Переопределение findAll для совместимости с текущим API контроллера,
-  // который ожидает сигнатуру (limit, offset, status)
+  // Статические методы для совместимости с существующим кодом
+  static async findById(id) { return User.instance.findById(id); }
+  static async findByTelegramId(id) { return User.instance.findByTelegramId(id); }
+  static async create(data) { return User.instance.create(data); }
+  static async update(id, data) { return User.instance.update(id, data); }
+  static async delete(id) { return User.instance.delete(id); }
+  static async restore(id) { return User.instance.restore(id); }
+  static async findByRole(role) { return User.instance.findByRole(role); }
+  static async verifyPinCode(tgId, pin) { return User.instance.verifyPinCode(tgId, pin); }
+
   static async findAll(limit = 100, offset = 0, status = 'active') {
-    const instance = new User();
-    const includeInactive = status === 'all' || status === 'inactive';
-
-    if (status === 'inactive') {
-        return instance.db(instance.tableName)
-            .where('is_active', false)
-            .limit(limit)
-            .offset(offset)
-            .orderBy('created_at', 'desc');
-    }
-
-    return instance.findAll({
-         limit,
-         offset,
-         includeInactive: status === 'all'
-     });
+    const includeInactive = status === 'all';
+    const filters = status === 'inactive' ? { is_active: false } : {};
+    return User.instance.findAll({ limit, offset, filters, includeInactive });
   }
 
-  // Статические обертки для совместимости с сервисами,
-  // которые вызывают User.findById вместо new User().findById
-  static async findById(id) { return new User().findById(id); }
-  static async findByTelegramId(id) { return new User().findByTelegramId(id); }
-  static async create(data) { return new User().create(data); }
-  static async update(id, data) { return new User().update(id, data); }
-  static async delete(id) { return new User().delete(id); }
-  static async reactivate(id) { return new User().restore(id); }
-  static async findByRole(role) { return new User().findByRole(role); }
-  static async verifyPinCode(tgId, pin) { return new User().verifyPinCode(tgId, pin); }
-  static async count(status) {
+  static async count(status = 'active') {
        const includeInactive = status === 'all';
-       return new User().count({}, includeInactive);
+    const filters = status === 'inactive' ? { is_active: false } : {};
+    return User.instance.count(filters, includeInactive);
    }
 }
+
 module.exports = User;

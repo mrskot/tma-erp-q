@@ -19,36 +19,44 @@ async function loadDataAndUpdateView() {
 function render() {
     const lotsToRender = store.state.lots.filter(l => state.filter === 'all' || !!l.is_active === (state.filter === 'active'));
 
-    const tableRows = lotsToRender.map(lot => {
+    const lotCards = lotsToRender.map(lot => {
         const isInactive = !lot.is_active;
         const actionButtons = isInactive
-            ? `<button class="button-small button-success" data-lot-id="${lot.id}" data-action="restore">🔄️</button>`
-            : `<button class="button-small button-secondary" data-lot-id="${lot.id}" data-action="edit">✏️</button>
-               <button class="button-small button-danger" data-lot-id="${lot.id}" data-action="delete">🗑️</button>`;
+            ? `<button class="button-action btn-restore" data-lot-id="${lot.id}" data-action="restore">Восстановить</button>`
+            : `<button class="button-action btn-edit" data-lot-id="${lot.id}" data-action="edit">✏️ Правка</button>
+               <button class="button-action btn-delete" data-lot-id="${lot.id}" data-action="delete">🗑️ Удалить</button>`;
         return `
-            <tr class="${isInactive ? 'inactive-user' : ''}" data-lot-id="${lot.id}">
-                <td>${lot.id}</td><td>${lot.name}</td><td>${lot.code}</td>
-                <td>${lot.main_master_name || '—'}</td><td>${lot.temp_master_name || '—'}</td>
-                <td class="actions">${actionButtons}</td>
-            </tr>`;
+            <div class="mobile-card ${isInactive ? 'inactive' : ''}" data-lot-id="${lot.id}">
+                <div class="card-header">
+                    <span class="card-id">ID: ${lot.id}</span>
+                    <span class="status-badge" style="background: #fef3c7; color: #92400e; font-size: 10px; padding: 2px 6px; border-radius: 4px; font-weight: 700;">
+                        ${lot.code}
+                    </span>
+                </div>
+                <div class="card-main-info">${lot.name}</div>
+                <div class="card-sub-info">Мастер: ${lot.main_master_name || '—'}</div>
+                <div class="card-actions">
+                    ${actionButtons}
+                </div>
+            </div>`;
     }).join('');
 
     const container = document.getElementById('page-content');
     container.innerHTML = `
-        <div class="page-header"><h3>Управление участками</h3>
+        <div class="page-header">
+            <h3>Участки</h3>
             <div class="page-controls">
                 <select class="page-filter">
                     <option value="active" ${state.filter === 'active' ? 'selected' : ''}>Активные</option>
                     <option value="inactive" ${state.filter === 'inactive' ? 'selected' : ''}>Неактивные</option>
                     <option value="all" ${state.filter === 'all' ? 'selected' : ''}>Все</option>
                 </select>
-                <button class="button" data-action="create">✨ Создать</button>
+                <button class="button button-small" data-action="create">✨ Создать</button>
             </div>
         </div>
-        <table class="crud-table">
-            <thead><tr><th>ID</th><th>Название</th><th>Код</th><th>Осн. мастер</th><th>Врем. мастер</th><th>Действия</th></tr></thead>
-            <tbody>${tableRows}</tbody>
-        </table>`;
+        <div class="task-grid">
+            ${lotCards || '<p class="empty-state">Участки не найдены.</p>'}
+        </div>`;
 }
 
 function handlePageClick(event) {

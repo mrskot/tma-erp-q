@@ -302,3 +302,337 @@ Markdown
     *   Зайди под Мастером (1111) -> должен видеть свои заявки.
     *   Зайди под Инспектором (7890) -> должен видеть новые заявки.
 Начинай с Дашбордов. Это сразу даст ощущение "живой" системы.
+
+Последнее на чём закончили стили
+public/css/style.css
+:root {
++    --bg-color: #f4f4f5;
++    --card-bg: #ffffff;
++    --text-main: #18181b;
++    --text-muted: #71717a;
++    --accent: #2563eb;
++    --accent-soft: #eff6ff;
++    --danger: #dc2626;
++    --danger-soft: #fef2f2;
++    --success: #16a34a;
++    --success-soft: #f0fdf4;
++    --border: rgba(0,0,0,0.08);
++}
++
+ body {
+-    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
++    font-family: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', Roboto, sans-serif;
+     margin: 0;
+-    background-color: var(--tg-theme-bg-color, #f0f2f5);
+-    color: var(--tg-theme-text-color, #222);
++    background-color: var(--tg-theme-bg-color, var(--bg-color));
++    color: var(--tg-theme-text-color, var(--text-main));
++    -webkit-font-smoothing: antialiased;
+ }
+ 
+ .container {
+-    padding: 20px;
+-    max-width: 900px;
++    padding: 16px;
++    max-width: 600px;
+     margin: 0 auto;
+ }
+ 
+-.hidden {
+-    display: none !important;
++#page-content {
++    background: transparent;
++    border-radius: 0;
++    padding: 0;
++    margin-top: 10px;
++    box-shadow: none;
+ }
+ 
+-.button {
+-    display: inline-block;
+-    width: 100%;
+-    padding: 12px 20px;
+-    font-size: 16px;
+-    font-weight: 600;
+-    text-align: center;
+-    border: none;
+-    border-radius: 8px;
+-    cursor: pointer;
+-    background-color: var(--tg-theme-button-color, #2481cc);
+-    color: var(--tg-theme-button-text-color, #ffffff);
+-    transition: background-color 0.2s ease;
+-}
+-
+-.button:disabled {
+-    background-color: #a0a0a0;
+-    cursor: not-allowed;
+-}
+-
+-.button-secondary {
+-    background-color: #a0a0a0;
+-    color: white;
+-}
+-
+-/* Экран входа */
+-#login-screen .container {
+-    max-width: 400px;
+-    text-align: center;
+-    position: absolute;
+-    top: 40%;
+-    left: 50%;
+-    transform: translate(-50%, -50%);
+-}
+-
+-#login-screen h1 {
+-    font-size: 24px;
+-    margin-bottom: 10px;
+-}
+-
+-#login-screen p {
+-    color: #666;
+-    margin-bottom: 30px;
+-}
+-
+-#pin-input {
+-    width: 100%;
+-    max-width: 200px;
+-    margin: 0 auto 20px;
+-    padding: 15px;
+-    font-size: 28px;
+-    text-align: center;
+-    letter-spacing: 1.5em; /* Расстояние между символами */
+-    border: 1px solid #ccc;
+-    border-radius: 8px;
+-    box-sizing: border-box;
+-}
+-
+-.error-message {
+-    color: var(--tg-theme-destructive-text-color, #e53935);
+-    margin-top: 15px;
+-    height: 20px;
+-}
+-
+-
+-/* Основное приложение */
+-#main-app {
++/* Карточки для мобильных устройств (улучшенные) */
++.mobile-card {
++    background: var(--tg-theme-secondary-bg-color, var(--card-bg));
++    border-radius: 20px;
++    padding: 20px;
++    margin-bottom: 16px;
++    box-shadow: 0 4px 20px rgba(0,0,0,0.04);
+     display: flex;
+     flex-direction: column;
+-    min-height: 100vh;
++    gap: 12px;
++    border: 1px solid var(--border);
++    transition: transform 0.2s ease;
+ }
+ 
+-header {
+-    background-color: var(--tg-theme-secondary-bg-color, #fff);
+-    border-bottom: 1px solid #e0e0e0;
+-    padding: 0 20px;
++.mobile-card:active {
++    transform: scale(0.98);
+ }
+ 
+-header .container {
+-    display: flex;
+-    justify-content: space-between;
+-    align-items: center;
+-    height: 60px;
+-    padding: 0;
++.mobile-card.inactive {
++    opacity: 0.5;
++    filter: grayscale(1);
+ }
+ 
+-header h1 {
+-    font-size: 20px;
+-    margin: 0;
+-}
+-
+-#user-info {
+-    color: #666;
+-    font-size: 14px;
+-}
+-
+-nav {
+-    background-color: var(--tg-theme-secondary-bg-color, #fff);
+-    border-bottom: 1px solid #e0e0e0;
+-}
+-
+-nav .container {
++.mobile-card .card-header {
+     display: flex;
+-    gap: 20px;
+-    padding: 0;
+-}
+-
+-nav a {
+-    padding: 15px 10px;
+-    text-decoration: none;
+-    color: var(--tg-theme-link-color, #2481cc);
+-    font-weight: 500;
+-    border-bottom: 3px solid transparent;
+-    transition: border-color 0.2s ease, color 0.2s ease;
+-}
+-
+-nav a.active {
+-    color: var(--tg-theme-text-color, #222);
+-    border-bottom-color: var(--tg-theme-button-color, #2481cc);
+-}
+-
+-main {
+-    flex-grow: 1;
+-    background-color: var(--tg-theme-bg-color, #f0f2f5);
+-}
+-
+-#page-content {
+-    background: var(--tg-theme-secondary-bg-color, #fff);
+-    border-radius: 10px;
+-    padding: 20px;
+-    margin-top: 20px;
+-    box-shadow: 0 1px 3px rgba(0,0,0,0.05);
+-}
+-
+-/* Стили для CRUD-страниц */
+-.page-header {
+-    display: flex;
+     justify-content: space-between;
+     align-items: center;
+-    margin-bottom: 20px;
+ }
+ 
+-.page-header h3 {
+-    margin: 0;
+-    font-size: 20px;
++.mobile-card .card-id {
++    font-size: 10px;
++    color: var(--text-muted);
++    font-weight: 700;
++    letter-spacing: 0.5px;
+ }
+ 
+-.page-header .button {
+-    width: auto;
++.mobile-card .card-main-info {
++    font-size: 20px;
++    font-weight: 800;
++    color: var(--text-main);
++    line-height: 1.2;
+ }
+ 
+-/* Карточки для мобильных устройств (вместо таблиц) */
+-.mobile-card {
+-    background: #fff;
+-    border-radius: 12px;
+-    padding: 15px;
+-    margin-bottom: 12px;
+-    box-shadow: 0 1px 3px rgba(0,0,0,0.08);
++.mobile-card .card-sub-info {
++    font-size: 14px;
++    color: var(--text-muted);
+     display: flex;
+     flex-direction: column;
+-    gap: 10px;
+-    position: relative;
+-    border-left: 4px solid var(--tg-theme-button-color, #2481cc);
+-}
+-
+-.mobile-card.inactive {
+-    border-left-color: #ccc;
+-    opacity: 0.8;
+-}
+-
+-.mobile-card .card-row {
+-    display: flex;
+-    justify-content: space-between;
+-    align-items: baseline;
+-}
+-
+-.mobile-card .card-label {
+-    font-size: 12px;
+-    color: #888;
++    gap: 4px;
+     font-weight: 500;
+ }
+ 
+-.mobile-card .card-value {
+-    font-size: 14px;
+-    font-weight: 600;
+-    color: #333;
+-}
+-
+ .mobile-card .card-actions {
+     display: flex;
+-    justify-content: flex-end;
+     gap: 12px;
+-    margin-top: 5px;
+-    padding-top: 10px;
+-    border-top: 1px solid #f0f0f0;
++    margin-top: 8px;
++    padding-top: 16px;
++    border-top: 1px solid var(--border);
+ }
+ 
+-.mobile-card .button-icon {
+-    background: none;
++.mobile-card .button-action {
++    flex: 1;
++    padding: 14px;
++    border-radius: 14px;
++    font-size: 15px;
++    font-weight: 700;
+     border: none;
+-    padding: 8px;
+-    font-size: 18px;
+     cursor: pointer;
+-    border-radius: 6px;
+-    transition: background 0.2s;
++    display: flex;
++    align-items: center;
++    justify-content: center;
++    gap: 8px;
+ }
+ 
+-.mobile-card .button-icon:hover {
+-    background: #f5f5f5;
++.mobile-card .btn-edit {
++    background: var(--accent-soft);
++    color: var(--accent);
+ }
+ 
+-.mobile-card .button-icon.edit { color: #2481cc; }
+-.mobile-card .button-icon.delete { color: #e53935; }
+-.mobile-card .button-icon.restore { color: #28a745; }
++.mobile-card .btn-delete {
++    background: var(--danger-soft);
++    color: var(--danger);
++}
+-/* Grid layout для дашбордов и списков */
+-.task-grid {
+-    display: flex;
+-    flex-direction: column;
+-    gap: 10px;
++.mobile-card .btn-restore {
++    background: var(--success-soft);
++    color: var(--success);
+ }
+ 
+-.dashboard-section h4 {
+-    margin: 20px 0 10px;
+-    font-size: 16px;
+-    color: #666;
+-    text-transform: uppercase;
+-    letter-spacing: 0.5px;
+-}
++.status-badge {
++    padding: 4px 10px;
++    border-radius: 8px;
++    font-size: 11px;
++    font-weight: 800;
++    letter-spacing: 0.3px;
++}

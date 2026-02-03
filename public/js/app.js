@@ -15,6 +15,7 @@ import * as usersPage from './pages/users.js';
 import * as lotsPage from './pages/lots.js';
 import * as productsPage from './pages/products.js';
 import * as applicationsPage from './pages/applications.js';
+import * as discrepanciesPage from './pages/discrepancies.js';
 
 const ROLES_CONFIG = {
     admin: { defaultPage: 'dashboard', allowedPages: ['dashboard', 'users', 'lots', 'products', 'applications', 'discrepancies'], name: 'Администратор' },
@@ -58,6 +59,7 @@ class App {
             lots: lotsPage,
             products: productsPage,
             applications: applicationsPage,
+            discrepancies: discrepanciesPage,
         };
         this.init();
     }

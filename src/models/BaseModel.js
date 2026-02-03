@@ -49,14 +49,18 @@ class BaseModel {
    * Создание записи (Safe for SQLite & Postgres)
    */
   async create(data) {
+    // Удаляем id, если он передан как пустая строка (может приходить из фронтенда)
+    const cleanData = { ...data };
+    if (cleanData.id === '' || cleanData.id === undefined) {
+      delete cleanData.id;
+    }
+
     // Вставка записи
     const [id] = await this.db(this.tableName)
-      .insert(data)
+      .insert(cleanData)
       .returning('id')
-      .then(ids => ids.map(id => typeof id === 'object' ? id.id : id)); // Нормализация ответа для разных драйверов
+      .then(ids => ids.map(id => typeof id === 'object' ? id.id : id));
 
-    // Возврат полной записи
-    // Используем findById, чтобы сразу получить отформатированные данные
     return this.findById(id, true);
   }
 

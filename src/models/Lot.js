@@ -6,6 +6,8 @@ class Lot extends BaseModel {
     super('lots');
   }
 
+  static instance = new Lot();
+
   /**
    * Специфичный метод: поиск по коду
    */
@@ -21,7 +23,7 @@ class Lot extends BaseModel {
   async findByMaster(masterId) {
     return this.db(this.tableName)
       .where({ is_active: true })
-      .where(function() {
+      .andWhere(function() {
         this.where('main_master_id', masterId)
           .orWhere('temp_master_id', masterId);
       })
@@ -32,130 +34,81 @@ class Lot extends BaseModel {
    * Специфичный метод: участок с информацией о мастерах
    */
   async findByIdWithMasters(id) {
-    const lot = await this.db(this.tableName)
-      .where({ 'lots.id': id, 'lots.is_active': true })
-      .leftJoin('users as main_master', 'lots.main_master_id', 'main_master.id')
-      .leftJoin('users as temp_master', 'lots.temp_master_id', 'temp_master.id')
+    const lot = await this.db(`${this.tableName} as l`)
       .select(
-        'lots.*',
-        'main_master.first_name as main_master_first_name',
-        'main_master.last_name as main_master_last_name',
-        'main_master.username as main_master_username',
-        'temp_master.first_name as temp_master_first_name',
-        'temp_master.last_name as temp_master_last_name',
-        'temp_master.username as temp_master_username'
+        'l.*',
+        'm.first_name as main_master_first_name', 'm.last_name as main_master_last_name',
+        't.first_name as temp_master_first_name', 't.last_name as temp_master_last_name'
       )
+      .leftJoin('users as m', 'l.main_master_id', 'm.id')
+      .leftJoin('users as t', 'l.temp_master_id', 't.id')
+      .where({ 'l.id': id, 'l.is_active': true })
       .first();
 
     if (!lot) return null;
-
-    return {
-      ...lot,
-      main_master: lot.main_master_id ? {
-        id: lot.main_master_id,
-        first_name: lot.main_master_first_name,
-        last_name: lot.main_master_last_name,
-        username: lot.main_master_username
-      } : null,
-      temp_master: lot.temp_master_id ? {
-        id: lot.temp_master_id,
-        first_name: lot.temp_master_first_name,
-        last_name: lot.temp_master_last_name,
-        username: lot.temp_master_username
-      } : null
-    };
+    return this._formatLotWithMasters(lot);
   }
 
   /**
    * Специфичный метод: все участки с информацией о мастерах
    */
   async findAllWithMasters(limit = 100, offset = 0, status = 'active') {
-    const query = this.db(this.tableName);
-
-    if (status === 'active') {
-      query.where({ 'lots.is_active': true });
-    } else if (status === 'inactive') {
-      query.where({ 'lots.is_active': false });
-    }
-    
-    const lots = await query
-      .leftJoin('users as main_master', 'lots.main_master_id', 'main_master.id')
-      .leftJoin('users as temp_master', 'lots.temp_master_id', 'temp_master.id')
+    const query = this.db(`${this.tableName} as l`)
       .select(
-        'lots.*',
-        'main_master.first_name as main_master_first_name',
-        'main_master.last_name as main_master_last_name',
-        'main_master.username as main_master_username',
-        'temp_master.first_name as temp_master_first_name',
-        'temp_master.last_name as temp_master_last_name',
-        'temp_master.username as temp_master_username'
+        'l.*',
+        'm.first_name as main_master_first_name', 'm.last_name as main_master_last_name',
+        't.first_name as temp_master_first_name', 't.last_name as temp_master_last_name'
       )
-      .orderBy('lots.priority', 'asc')
-      .orderBy('lots.name', 'asc')
-      .limit(limit)
-      .offset(offset);
+      .leftJoin('users as m', 'l.main_master_id', 'm.id')
+      .leftJoin('users as t', 'l.temp_master_id', 't.id');
 
-    return lots.map(lot => ({
-      ...lot,
-      main_master_name: lot.main_master_id ? `${lot.main_master_first_name} ${lot.main_master_last_name}` : null,
-      temp_master_name: lot.temp_master_id ? `${lot.temp_master_first_name} ${lot.temp_master_last_name}` : null,
-      main_master: lot.main_master_id ? {
-        id: lot.main_master_id,
-        first_name: lot.main_master_first_name,
-        last_name: lot.main_master_last_name,
-        username: lot.main_master_username
-      } : null,
-      temp_master: lot.temp_master_id ? {
-        id: lot.temp_master_id,
-        first_name: lot.temp_master_first_name,
-        last_name: lot.temp_master_last_name,
-        username: lot.temp_master_username
-      } : null
-    }));
+    if (status === 'active') query.where('l.is_active', true);
+    else if (status === 'inactive') query.where('l.is_active', false);
+
+    const rows = await query.orderBy('l.priority', 'asc').limit(limit).offset(offset);
+    return rows.map(r => this._formatLotWithMasters(r));
   }
 
-  // Статические обертки для совместимости
-  static async findById(id) { return new Lot().findById(id); }
-  static async findByCode(code) { return new Lot().findByCode(code); }
-  static async findByMaster(masterId) { return new Lot().findByMaster(masterId); }
-  static async create(data) { return new Lot().create(data); }
-  static async update(id, data) { return new Lot().update(id, data); }
-  static async delete(id) { return new Lot().delete(id); }
-  static async reactivate(id) { return new Lot().restore(id); }
-  static async findByIdWithMasters(id) { return new Lot().findByIdWithMasters(id); }
-  static async findAllWithMasters(limit, offset, status) { return new Lot().findAllWithMasters(limit, offset, status); }
+  _formatLotWithMasters(row) {
+    if (!row) return null;
+    return {
+      ...row,
+      main_master_name: row.main_master_id ? `${row.main_master_first_name} ${row.main_master_last_name}` : null,
+      temp_master_name: row.temp_master_id ? `${row.temp_master_first_name} ${row.temp_master_last_name}` : null
+    };
+  }
+  // Статические методы для совместимости
+  static async findById(id) { return Lot.instance.findById(id); }
+  static async findByCode(code) { return Lot.instance.findByCode(code); }
+  static async findByMaster(masterId) { return Lot.instance.findByMaster(masterId); }
+  static async create(data) { return Lot.instance.create(data); }
+  static async update(id, data) { return Lot.instance.update(id, data); }
+  static async delete(id) { return Lot.instance.delete(id); }
+  static async restore(id) { return Lot.instance.restore(id); }
+  static async reactivate(id) { return Lot.instance.restore(id); }
+  static async findByIdWithMasters(id) { return Lot.instance.findByIdWithMasters(id); }
+  static async findAllWithMasters(limit, offset, status) { return Lot.instance.findAllWithMasters(limit, offset, status); }
   
   static async count(status = 'active') {
     const includeInactive = status === 'all';
-    const filters = {};
-    if (status === 'inactive') filters.is_active = false;
-    return new Lot().count(filters, includeInactive);
+    const filters = status === 'inactive' ? { is_active: false } : {};
+    return Lot.instance.count(filters, includeInactive);
   }
 
   static async assignTempMaster(lotId, tempMasterId) {
-    return new Lot().update(lotId, { temp_master_id: tempMasterId });
+    return Lot.instance.update(lotId, { temp_master_id: tempMasterId });
   }
 
   static async removeTempMaster(lotId) {
-    return new Lot().update(lotId, { temp_master_id: null });
+    return Lot.instance.update(lotId, { temp_master_id: null });
   }
 
   static async findAll(limit = 100, offset = 0, status = 'active') {
-    const instance = new Lot();
-    const query = instance.db(instance.tableName);
-
-    if (status === 'active') {
-      query.where({ is_active: true });
-    } else if (status === 'inactive') {
-      query.where({ is_active: false });
-    }
-
-    return query
-      .orderBy('priority', 'asc')
-      .orderBy('name', 'asc')
-      .limit(limit)
-      .offset(offset);
+    const includeInactive = status === 'all';
+    const filters = status === 'inactive' ? { is_active: false } : {};
+    return Lot.instance.findAll({ limit, offset, filters, includeInactive, orderBy: { column: 'priority', direction: 'asc' } });
   }
 }
 
 module.exports = Lot;
+

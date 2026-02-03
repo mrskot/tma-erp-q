@@ -19,36 +19,46 @@ async function loadDataAndUpdateView() {
 function render() {
     const productsToRender = store.state.products.filter(p => state.filter === 'all' || !!p.is_active === (state.filter === 'active'));
 
-    const tableRows = productsToRender.map(product => {
+    const productCards = productsToRender.map(product => {
         const isInactive = !product.is_active;
         const actionButtons = isInactive
-            ? `<button class="button-small button-success" data-product-id="${product.id}" data-action="restore">🔄️</button>`
-            : `<button class="button-small button-secondary" data-product-id="${product.id}" data-action="edit">✏️</button>
-               <button class="button-small button-danger" data-product-id="${product.id}" data-action="delete">🗑️</button>`;
+            ? `<button class="button-action btn-restore" data-product-id="${product.id}" data-action="restore">Восстановить</button>`
+            : `<button class="button-action btn-edit" data-product-id="${product.id}" data-action="edit">✏️ Правка</button>
+               <button class="button-action btn-delete" data-product-id="${product.id}" data-action="delete">🗑️ Удалить</button>`;
         const lot = store.getLotById(product.lot_id);
+        
         return `
-            <tr class="${isInactive ? 'inactive-user' : ''}" data-product-id="${product.id}">
-                <td>${product.id}</td><td>${product.name}</td><td>${lot?.name || '—'}</td>
-                <td>${(product.checklist || []).length} п.</td><td class="actions">${actionButtons}</td>
-            </tr>`;
+            <div class="mobile-card ${isInactive ? 'inactive' : ''}" data-product-id="${product.id}">
+                <div class="card-header">
+                    <span class="card-id">ID: ${product.id}</span>
+                    <span class="status-badge" style="background: ${product.inspection_mode === 'hard' ? '#fff1f2' : '#f0fdf4'}; color: ${product.inspection_mode === 'hard' ? '#e11d48' : '#16a34a'}; font-size: 10px; padding: 2px 6px; border-radius: 4px; font-weight: 700;">
+                        ${product.inspection_mode === 'hard' ? '🛡️ HARD' : '🚀 LITE'}
+                    </span>
+                </div>
+                <div class="card-main-info">${product.name}</div>
+                <div class="card-sub-info">${lot?.name || '—'}</div>
+                <div class="card-actions">
+                    ${actionButtons}
+                </div>
+            </div>`;
     }).join('');
 
     const container = document.getElementById('page-content');
     container.innerHTML = `
-        <div class="page-header"><h3>Управление изделиями</h3>
+        <div class="page-header">
+            <h3>Изделия</h3>
             <div class="page-controls">
                 <select class="page-filter">
                     <option value="active" ${state.filter === 'active' ? 'selected' : ''}>Активные</option>
                     <option value="inactive" ${state.filter === 'inactive' ? 'selected' : ''}>Неактивные</option>
                     <option value="all" ${state.filter === 'all' ? 'selected' : ''}>Все</option>
                 </select>
-                <button class="button" data-action="create">✨ Создать</button>
+                <button class="button button-small" data-action="create">✨ Создать</button>
             </div>
         </div>
-        <table class="crud-table">
-            <thead><tr><th>ID</th><th>Название</th><th>Участок</th><th>Чек-лист</th><th>Действия</th></tr></thead>
-            <tbody>${tableRows}</tbody>
-        </table>`;
+        <div class="task-grid">
+            ${productCards || '<p class="empty-state">Изделия не найдены.</p>'}
+        </div>`;
 }
 
 function handlePageClick(event) {

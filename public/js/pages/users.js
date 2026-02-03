@@ -22,42 +22,52 @@ async function loadDataAndUpdateView() {
 }
 
 function render() {
-    // ... (вся функция render без изменений)
     const usersToRender = store.state.users.filter(user => {
         if (state.filter === 'all') return true;
         return !!user.is_active === (state.filter === 'active');
     });
 
-    const tableRows = usersToRender.map(user => {
+    const userCards = usersToRender.map(user => {
         const isInactive = !user.is_active;
-        const rowClass = isInactive ? 'class="inactive-user"' : '';
         const actionButtons = isInactive
-            ? `<button class="button-small button-success" data-user-id="${user.id}" data-action="restore" title="Восстановить">🔄️</button>`
-            : `<button class="button-small button-secondary" data-user-id="${user.id}" data-action="edit" title="Редактировать">✏️</button>
-               <button class="button-small button-danger" data-user-id="${user.id}" data-action="delete" title="Деактивировать">🗑️</button>`;
+            ? `<button class="button-action btn-restore" data-user-id="${user.id}" data-action="restore">Восстановить</button>`
+            : `<button class="button-action btn-edit" data-user-id="${user.id}" data-action="edit">✏️ Правка</button>
+               <button class="button-action btn-delete" data-user-id="${user.id}" data-action="delete">🗑️ Удалить</button>`;
+        
         return `
-            <tr data-user-id="${user.id}" ${rowClass}>
-                <td data-label="ID">${user.id}</td><td data-label="Имя">${user.first_name || ''} ${user.last_name || ''}</td>
-                <td data-label="Роль">${getRoleName(user.role)}</td><td data-label="Telegram ID">${user.telegram_id || '-'}</td>
-                <td data-label="PIN">${isInactive ? 'N/A' : '****'}</td><td class="actions">${actionButtons}</td>
-            </tr>`;
+            <div class="mobile-card ${isInactive ? 'inactive' : ''}" data-user-id="${user.id}">
+                <div class="card-header">
+                    <span class="card-id">ID: ${user.id}</span>
+                    <span class="status-badge" style="background: ${isInactive ? '#eee' : '#e0f2fe'}; color: ${isInactive ? '#999' : '#0369a1'}; font-size: 10px; padding: 2px 6px; border-radius: 4px; font-weight: 700;">
+                        ${getRoleName(user.role).toUpperCase()}
+                    </span>
+                </div>
+                <div class="card-main-info">${user.first_name || ''} ${user.last_name || ''}</div>
+                <div class="card-sub-info">
+                    ${user.telegram_id ? `<div>TG: ${user.telegram_id}</div>` : ''}
+                    ${user.bitrix_id ? `<div>Bitrix: ${user.bitrix_id}</div>` : ''}
+                </div>
+                <div class="card-actions">
+                    ${actionButtons}
+                </div>
+            </div>`;
     }).join('');
 
     document.getElementById('page-content').innerHTML = `
-        <div class="page-header"><h3>Управление пользователями</h3>
+        <div class="page-header">
+            <h3>Пользователи</h3>
             <div class="page-controls">
                 <select id="user-status-filter" class="page-filter">
                     <option value="active" ${state.filter === 'active' ? 'selected' : ''}>Активные</option>
                     <option value="inactive" ${state.filter === 'inactive' ? 'selected' : ''}>Неактивные</option>
                     <option value="all" ${state.filter === 'all' ? 'selected' : ''}>Все</option>
                 </select>
-                <button class="button" data-action="create">✨ Создать</button>
+                <button class="button button-small" data-action="create">✨ Создать</button>
             </div>
         </div>
-        <table class="crud-table">
-            <thead><tr><th>ID</th><th>Имя</th><th>Роль</th><th>Telegram ID</th><th>PIN</th><th>Действия</th></tr></thead>
-            <tbody>${tableRows || `<tr><td colspan="6">Пользователи не найдены.</td></tr>`}</tbody>
-        </table>`;
+        <div class="task-grid">
+            ${userCards || '<p class="empty-state">Пользователи не найдены.</p>'}
+        </div>`;
 }
 
 function handlePageClick(event) {

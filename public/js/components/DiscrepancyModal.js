@@ -180,10 +180,6 @@ export class DiscrepancyModal {
 
             this.handleStatusChange();
             this.handleScenarioChange();
-// ... rest of code ...
-
-            this.handleStatusChange();
-            this.handleScenarioChange();
 
             if (discrepancyData.due_date) {
                 const date = new Date(discrepancyData.due_date);

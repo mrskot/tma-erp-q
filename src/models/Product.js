@@ -6,62 +6,43 @@ class Product extends BaseModel {
     super('products');
   }
 
+  static instance = new Product();
+
   /**
    * Специфичный метод: поиск по Lot ID
    */
   async findByLotId(lotId, limit = 100, offset = 0) {
-    return this.findAll({
-      limit,
-      offset,
-      filters: { lot_id: lotId }
-    });
+    return this.findAll({ filters: { lot_id: lotId }, limit, offset });
   }
-
   /**
    * Специфичный метод: поиск по типу продукта
    */
   async findByProductType(productType, limit = 100, offset = 0) {
-    return this.findAll({
-      limit,
-      offset,
-      filters: { product_type: productType }
-    });
+    return this.findAll({ filters: { product_type: productType }, limit, offset });
   }
-
-  // Статические обертки для совместимости
-  static async findById(id, includeInactive = false) { return new Product().findById(id, includeInactive); }
+  // Статические методы для совместимости
+  static async findById(id, includeInactive = false) { return Product.instance.findById(id, includeInactive); }
   
   static async findAll(limit = 100, offset = 0, status = 'active') {
-    const instance = new Product();
-    const query = instance.db(instance.tableName);
-
-    if (status === 'active') {
-      query.where({ is_active: true });
-    } else if (status === 'inactive') {
-      query.where({ is_active: false });
-    }
-
-    return query
-      .orderBy('name', 'asc')
-      .limit(limit)
-      .offset(offset);
+    const includeInactive = status === 'all';
+    const filters = status === 'inactive' ? { is_active: false } : {};
+    return Product.instance.findAll({ limit, offset, filters, includeInactive, orderBy: { column: 'name', direction: 'asc' } });
   }
 
-  static async findByLotId(lotId, limit, offset) { return new Product().findByLotId(lotId, limit, offset); }
-  static async create(data) { return new Product().create(data); }
-  static async update(id, data) { return new Product().update(id, data); }
-  static async delete(id) { return new Product().delete(id); }
-  static async restore(id) { return new Product().restore(id); }
-  
+  static async findByLotId(id, limit, offset) { return Product.instance.findByLotId(id, limit, offset); }
+  static async create(data) { return Product.instance.create(data); }
+  static async update(id, data) { return Product.instance.update(id, data); }
+  static async delete(id) { return Product.instance.delete(id); }
+  static async restore(id) { return Product.instance.restore(id); }
+
   static async count(status = 'active') {
     const includeInactive = status === 'all';
-    const filters = {};
-    if (status === 'inactive') filters.is_active = false;
-    return new Product().count(filters, includeInactive);
+    const filters = status === 'inactive' ? { is_active: false } : {};
+    return Product.instance.count(filters, includeInactive);
   }
 
-  static async findByProductType(productType, limit, offset) { 
-    return new Product().findByProductType(productType, limit, offset); 
+  static async findByProductType(productType, limit, offset) {
+    return Product.instance.findByProductType(productType, limit, offset);
   }
 }
 

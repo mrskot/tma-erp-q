@@ -6,6 +6,8 @@ class Application extends BaseModel {
     super('applications');
   }
 
+  static instance = new Application();
+
   /**
    * Переопределяем findById, чтобы подтянуть все связанные данные
    */
@@ -16,15 +18,15 @@ class Application extends BaseModel {
         'p.name as product_name',
         'p.checklist as product_checklist',
         'l.name as lot_name',
-        db.raw("master.first_name || ' ' || master.last_name as master_name"),
-        db.raw("inspector.first_name || ' ' || inspector.last_name as inspector_name"),
-        db.raw('(SELECT COUNT(*) FROM discrepancies WHERE application_id = a.id) as total_discrepancies'),
-        db.raw("(SELECT COUNT(*) FROM discrepancies WHERE application_id = a.id AND status IN ('resolved', 'closed')) as closed_discrepancies")
+        this.db.raw("m.first_name || ' ' || m.last_name as master_name"),
+        this.db.raw("i.first_name || ' ' || i.last_name as inspector_name"),
+        this.db.raw('(SELECT COUNT(*) FROM discrepancies WHERE application_id = a.id) as total_discrepancies'),
+        this.db.raw("(SELECT COUNT(*) FROM discrepancies WHERE application_id = a.id AND status IN ('resolved', 'closed')) as closed_discrepancies")
       )
       .leftJoin('products as p', 'a.product_id', 'p.id')
       .leftJoin('lots as l', 'a.lot_id', 'l.id')
-      .leftJoin('users as master', 'a.master_id', 'master.id')
-      .leftJoin('users as inspector', 'a.inspector_id', 'inspector.id')
+      .leftJoin('users as m', 'a.master_id', 'm.id')
+      .leftJoin('users as i', 'a.inspector_id', 'i.id')
       .where('a.id', id);
 
     if (!includeInactive) {
@@ -56,26 +58,23 @@ class Application extends BaseModel {
   }
 
   // Статические обертки для совместимости
-  static async findById(id) { return new Application().findById(id); }
-  static async findByApplicationNumber(num) { return new Application().findByApplicationNumber(num); }
-  static async create(data) { return new Application().create(data); }
-  static async createBatch(data) { return new Application().createBatch(data); }
-  static async update(id, data) { return new Application().update(id, data); }
-  static async delete(id) { return new Application().delete(id); }
+  static async findById(id) { return Application.instance.findById(id); }
+  static async findByApplicationNumber(num) { return Application.instance.findByApplicationNumber(num); }
+  static async create(data) { return Application.instance.create(data); }
+  static async createBatch(data) { return Application.instance.createBatch(data); }
+  static async update(id, data) { return Application.instance.update(id, data); }
+  static async delete(id) { return Application.instance.delete(id); }
+  
   static async updateStatus(id, status, rejectionReason = null) {
     const updateData = { status };
     if (rejectionReason) updateData.rejection_reason = rejectionReason;
-    return new Application().update(id, updateData);
+    return Application.instance.update(id, updateData);
   }
 
   static async count(status = 'active') {
-    const instance = new Application();
-    const query = instance.db(instance.tableName);
-    if (status !== 'all') {
-      query.where(status === 'inactive' ? { is_active: false } : { is_active: true });
-    }
-    const result = await query.count('id as count').first();
-    return parseInt(result.count || result['count(*)'], 10);
+    const includeInactive = status === 'all';
+    const filters = status === 'inactive' ? { is_active: false } : {};
+    return Application.instance.count(filters, includeInactive);
   }
 
   static async countByStatus(status) {
@@ -85,22 +84,22 @@ class Application extends BaseModel {
     return parseInt(result.count || result['count(*)'], 10);
   }
 
-  static async findAll({ filters = {}, limit = 100, offset = 0, user = null } = {}) {
-    const instance = new Application();
-    const query = instance.db(`${instance.tableName} as a`)
+  static async findAll(params = {}) {
+    const { filters = {}, limit = 100, offset = 0, user = null } = params;
+    const query = db(`${Application.instance.tableName} as a`)
       .select(
         'a.*',
         'p.name as product_name',
         'l.name as lot_name',
-        db.raw("master.first_name || ' ' || master.last_name as master_name"),
-        db.raw("inspector.first_name || ' ' || inspector.last_name as inspector_name"),
+        db.raw("m.first_name || ' ' || m.last_name as master_name"),
+        db.raw("i.first_name || ' ' || i.last_name as inspector_name"),
         db.raw('(SELECT COUNT(*) FROM discrepancies WHERE application_id = a.id) as total_discrepancies'),
         db.raw("(SELECT COUNT(*) FROM discrepancies WHERE application_id = a.id AND status IN ('resolved', 'closed')) as closed_discrepancies")
       )
       .leftJoin('products as p', 'a.product_id', 'p.id')
       .leftJoin('lots as l', 'a.lot_id', 'l.id')
-      .leftJoin('users as master', 'a.master_id', 'master.id')
-      .leftJoin('users as inspector', 'a.inspector_id', 'inspector.id')
+      .leftJoin('users as m', 'a.master_id', 'm.id')
+      .leftJoin('users as i', 'a.inspector_id', 'i.id')
       .where('a.is_active', true)
       .orderBy('a.created_at', 'desc')
       .limit(limit)
@@ -132,4 +131,5 @@ class Application extends BaseModel {
 }
 
 module.exports = Application;
+
 
