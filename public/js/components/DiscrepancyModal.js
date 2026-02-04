@@ -1,5 +1,6 @@
 // public/js/components/DiscrepancyModal.js
 
+import { BaseModal } from './BaseModal.js';
 import api from '../api.js';
 import authManager from '../auth.js';
 
@@ -76,15 +77,10 @@ const DiscrepancyTemplates = {
     }
 };
 
-export class DiscrepancyModal {
+export class DiscrepancyModal extends BaseModal {
     constructor() {
-        this.modal = document.getElementById('discrepancy-modal');
-        if (!this.modal) return;
+        super('discrepancy-modal', 'discrepancy-form');
 
-        this.form = document.getElementById('discrepancy-form');
-        this.title = this.modal.querySelector('.modal-title');
-        this.closeButton = this.modal.querySelector('.close');
-        
         this.statusSelect = document.getElementById('disc-status');
         this.scenarioGroup = document.getElementById('closure-scenario-group');
         this.scenarioSelect = document.getElementById('disc-scenario');
@@ -94,23 +90,12 @@ export class DiscrepancyModal {
         this.masterFields = document.getElementById('master-action-fields');
         
         this.currentData = null;
-        this.onSave = null;
-        this.editMode = false;
         this.usersCache = [];
 
-        this.attachEventListeners();
+        this.attachInternalListeners();
     }
 
-    attachEventListeners() {
-        // Submit через перехват
-        this.form.onsubmit = (e) => this.handleSubmit(e);
-        
-        // Закрытие
-        this.closeButton.onclick = () => this.hide();
-        window.addEventListener('click', (e) => {
-            if (e.target === this.modal) this.hide();
-        });
-
+    attachInternalListeners() {
         // Сценарии
         this.statusSelect.onchange = () => this.handleStatusUI();
         this.scenarioSelect.onchange = () => this.handleScenarioUI();
@@ -130,25 +115,24 @@ export class DiscrepancyModal {
         this.detailsContainer.innerHTML = DiscrepancyTemplates.closureFields(scenario);
     }
 
-    async show({ mode = 'create', discrepancyData = null, applicationId = null, onSave = null }) {
-        this.onSave = onSave;
+    async show({ mode = 'create', discrepancyData = null, applicationId = null, onSave = null, users = [] }) {
+        super.show({ onSave });
         this.editMode = mode === 'edit';
         this.currentData = discrepancyData;
         
-        this.form.reset();
         this.actionsDiv.innerHTML = '';
         this.detailsContainer.innerHTML = '';
         
-        await this.loadUsers();
-        this.populateResponsibles();
+        this.populateSelect(this.responsibleSelect, users, { 
+            textField: 'first_name', 
+            placeholder: '-- Выберите исполнителя --' 
+        });
 
         if (this.editMode && discrepancyData) {
             this._setupEditMode(discrepancyData);
         } else {
             this._setupCreateMode(applicationId);
         }
-
-        this.modal.style.display = 'block';
     }
 
     _setupCreateMode(appId) {
@@ -290,8 +274,8 @@ export class DiscrepancyModal {
     async handleInspectorResolution(newStatus) {
         const id = this.form.elements.id.value;
         const scenario = this.scenarioSelect.value;
-        const detailsTextarea = this.detailsContainer.querySelector('textarea');
-        const details = detailsTextarea ? detailsTextarea.value.trim() : '';
+        const descriptionField = this.detailsContainer.querySelector('textarea');
+        const description = descriptionField ? descriptionField.value.trim() : '';
 
         if (newStatus === 'closed' && !scenario) {
             alert('❌ Пожалуйста, выберите сценарий закрытия!');
@@ -300,9 +284,9 @@ export class DiscrepancyModal {
             return;
         }
 
-        if (newStatus === 'closed' && ['resolution_card', 'political', 'scrap'].includes(scenario) && !details) {
+        if (newStatus === 'closed' && ['resolution_card', 'political', 'scrap'].includes(scenario) && !description) {
             alert('❌ Пожалуйста, заполните детали сценария (номер КР или причину)!');
-            if (detailsTextarea) detailsTextarea.focus();
+            if (descriptionField) descriptionField.focus();
             return;
         }
 
@@ -310,7 +294,7 @@ export class DiscrepancyModal {
             id: parseInt(id),
             status: newStatus,
             closure_scenario: scenario || null,
-            metadata: details ? JSON.stringify({ details }) : null,
+            description: description || null,
             is_disputed: newStatus === 'in_progress' ? false : undefined 
         };
 
@@ -323,30 +307,6 @@ export class DiscrepancyModal {
         } catch (error) {
             alert(error.message);
         }
-    }
-
-    async loadUsers() {
-        if (this.usersCache.length > 0) return;
-        try {
-            const res = await api.getUsers('active');
-            this.usersCache = res.data || [];
-        } catch (e) {
-            console.error('Failed to load users for modal', e);
-        }
-    }
-
-    populateResponsibles() {
-        this.responsibleSelect.innerHTML = '<option value="" disabled selected>-- Выберите ответственного --</option>';
-        const roles = { master: '👷 Мастер', worker: '🛠️ Рабочий', inspector: '🔍 Контролер' };
-        
-        this.usersCache
-            .filter(u => ['master', 'worker', 'inspector'].includes(u.role))
-            .forEach(u => {
-                const opt = document.createElement('option');
-                opt.value = u.id;
-                opt.textContent = `${u.first_name} ${u.last_name} (${roles[u.role] || u.role})`;
-                this.responsibleSelect.appendChild(opt);
-            });
     }
 
     _toggleInputs(disabled, except = []) {

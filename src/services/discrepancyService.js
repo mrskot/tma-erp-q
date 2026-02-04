@@ -123,11 +123,6 @@ class DiscrepancyService {
       }
     }
 
-    if (updateData.details) {
-      if (!updateData.description) updateData.description = updateData.details;
-      delete updateData.details;
-    }
-
     // Логика закрытия (если статус стал closed вручную или через LITE)
     if (finalStatus === 'closed') {
       updateData.closed_at = updateData.closed_at || new Date();

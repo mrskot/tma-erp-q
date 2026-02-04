@@ -1,255 +1,90 @@
-// public/js/components/ApplicationModal.js
-import api from '../api.js'; // Default import
-import authManager from '../auth.js'; // Default import
+import { BaseModal } from './BaseModal.js';
+import authManager from '../auth.js';
 
-export class ApplicationModal {
+export class ApplicationModal extends BaseModal {
     constructor() {
-        this.modal = document.getElementById('application-modal');
-        if (!this.modal) {
-            console.error('ApplicationModal HTML not found');
-            return;
-        }
-        this.form = document.getElementById('application-form');
-        this.title = this.modal.querySelector('.modal-title');
-        this.closeButton = this.modal.querySelector('.close');
-        
-        // --- Элементы формы ---
-        this.productIdSelect = document.getElementById('app-product-id');
-        this.productionOrderInput = document.getElementById('app-production-order'); 
-        this.drawingNumberInput = document.getElementById('app-drawing-number');
-        this.desiredTimeInput = document.getElementById('app-desired-time');
-        this.quantityInput = document.getElementById('app-quantity');
-        this.mkiPhotoInput = document.getElementById('app-mki-photo');
-        this.hasSerialsCheckbox = document.getElementById('app-has-serials');
-        this.serialsContainer = document.getElementById('app-serials-container');
-        this.masterIdSelect = document.getElementById('app-master-id');
-        this.lotIdSelect = document.getElementById('app-lot-id');
-        this.notesTextarea = document.getElementById('app-notes');
-        
-        this.onSave = null;
-        this.editMode = false;
-        this.lotsCache = [];
-        this.mastersCache = [];
-        this.productsCache = [];
-
-        this.attachEventListeners();
+        super('application-modal', 'application-form');
+        this.attachInternalListeners();
     }
 
-    attachEventListeners() {
-        this.form.addEventListener('submit', (e) => this.handleSubmit(e));
-        this.closeButton.addEventListener('click', () => this.hide());
-        this.quantityInput.addEventListener('input', () => this.renderSerialInputs());
-        this.hasSerialsCheckbox.addEventListener('change', () => this.toggleSerialsContainer());
-        this.lotIdSelect.addEventListener('change', () => this.handleLotChange());
+    attachInternalListeners() {
+        this.form.elements.quantity.oninput = () => this.renderSerialInputs();
+        this.form.elements.has_serial_numbers.onchange = () => this.toggleSerialsContainer();
+        this.form.elements.lot_id.onchange = () => this.handleLotChange();
+    }
+
+    async show({ mode = 'create', onSave, products = [], masters = [], lots = [] }) {
+        super.show({ onSave });
+        this.productsCache = products;
+        this.lotsCache = lots;
+
+        const title = this.modalElement.querySelector('.modal-title');
+        title.textContent = mode === 'edit' ? 'Редактировать заявку' : 'Создать партию заявок';
+
+        const currentUser = authManager.getUser();
+        const isMaster = currentUser && currentUser.role === 'master';
+
+        this.populateSelect(this.form.elements.lot_id, lots, { placeholder: 'Выберите участок' });
+        this.populateSelect(this.form.elements.master_id, masters, { textField: 'first_name', placeholder: 'Выберите мастера' });
+        this.populateSelect(this.form.elements.product_id, [], { placeholder: 'Сначала выберите участок' });
+
+        this.form.elements.master_id.disabled = isMaster;
+
+        if (isMaster) {
+            this.form.elements.master_id.value = currentUser.id;
+            const masterLots = lots.filter(lot => lot.main_master_id === currentUser.id || lot.temp_master_id === currentUser.id);
+            this.populateSelect(this.form.elements.lot_id, masterLots, { placeholder: 'Выберите ваш участок' });
+            if (masterLots.length === 1) {
+                this.form.elements.lot_id.value = masterLots[0].id;
+                this.handleLotChange();
+            }
+        }
+
+        this.form.elements.has_serial_numbers.checked = true;
+        this.toggleSerialsContainer();
+        this.form.elements.quantity.value = 1;
+        this.renderSerialInputs();
     }
 
     handleLotChange() {
-        const lotId = parseInt(this.lotIdSelect.value);
-        this.filterProductsByLot(lotId);
-
-        if (this.masterIdSelect.disabled) return;
-        
-        if (!lotId || !this.lotsCache) {
-            this.masterIdSelect.value = '';
-            return;
-        }
-
-        const selectedLot = this.lotsCache.find(l => l.id === lotId);
-        if (selectedLot) {
-            // Исправленная логика: ищем main_master_id в объекте лота
-            const masterId = selectedLot.temp_master_id || selectedLot.main_master_id;
-            // Проверяем, есть ли такой мастер в списке option
-            const optionExists = Array.from(this.masterIdSelect.options).some(o => o.value == masterId);
-            if (optionExists) {
-                this.masterIdSelect.value = masterId;
-            } else {
-                this.masterIdSelect.value = '';
-            }
-        } else {
-            this.masterIdSelect.value = '';
-        }
-    }
-
-    filterProductsByLot(lotId) {
+        const lotId = parseInt(this.form.elements.lot_id.value);
         if (!lotId) {
-            this.populateSelect(this.productIdSelect, [], { placeholder: 'Сначала выберите участок' });
+            this.populateSelect(this.form.elements.product_id, [], { placeholder: 'Сначала выберите участок' });
             return;
         }
-        const filteredProducts = this.productsCache.filter(p => p.is_active && p.lot_id === lotId);
-        this.populateSelect(this.productIdSelect, filteredProducts, { 
-            valueField: 'id', 
-            textField: 'name', 
+
+        const filteredProducts = this.productsCache.filter(p => p.lot_id === lotId);
+        this.populateSelect(this.form.elements.product_id, filteredProducts, { 
             placeholder: filteredProducts.length > 0 ? 'Выберите изделие' : 'На этом участке нет изделий' 
         });
+
+        const selectedLot = this.lotsCache.find(l => l.id === lotId);
+        if (selectedLot && !this.form.elements.master_id.disabled) {
+            this.form.elements.master_id.value = selectedLot.temp_master_id || selectedLot.main_master_id || '';
+        }
     }
-    
+
     toggleSerialsContainer() {
-        const show = this.hasSerialsCheckbox.checked;
-        this.serialsContainer.style.display = show ? 'block' : 'none';
+        const container = document.getElementById('app-serials-container');
+        container.style.display = this.form.elements.has_serial_numbers.checked ? 'block' : 'none';
         this.renderSerialInputs();
     }
 
     renderSerialInputs() {
-        this.serialsContainer.innerHTML = '';
-        if (!this.hasSerialsCheckbox.checked) return;
+        const container = document.getElementById('app-serials-container');
+        container.innerHTML = '';
+        if (!this.form.elements.has_serial_numbers.checked) return;
 
-        const quantity = parseInt(this.quantityInput.value) || 0;
-        if (quantity < 1) return;
-
-        const fragment = document.createDocumentFragment();
+        const quantity = parseInt(this.form.elements.quantity.value) || 0;
         for (let i = 0; i < quantity; i++) {
             const row = document.createElement('div');
             row.className = 'serial-photo-row';
-            row.style.marginBottom = '10px';
-            row.style.borderBottom = '1px solid #eee';
-            row.style.paddingBottom = '10px';
-            
             row.innerHTML = `
-                <div style="font-size: 12px; color: #666; margin-bottom: 5px; font-weight: 700;">Экземпляр #${i + 1}</div>
-                <input type="text" class="serial-number-input" placeholder="Серийный номер" required style="margin-bottom: 8px; padding: 10px; font-size: 14px;">
-                <input type="text" class="serial-photo-input" placeholder="URL фото МКИ для этого серийника" style="font-size: 13px; padding: 10px;">
+                <div style="font-size: 12px; color: #666; margin-top: 10px;">Экземпляр #${i + 1}</div>
+                <input type="text" name="serial_number_${i}" placeholder="Серийный номер" required>
+                <input type="text" name="serial_photo_${i}" placeholder="URL фото (опционально)">
             `;
-            fragment.appendChild(row);
-        }
-        this.serialsContainer.appendChild(fragment);
-    }
-
-    populateSelect(selectElement, items, { valueField, textField, nameField, placeholder }) {
-        selectElement.innerHTML = `<option value="">${placeholder}</option>`;
-        items.forEach(item => {
-            const option = document.createElement('option');
-            option.value = item[valueField];
-            option.textContent = nameField ? `${item[textField]} ${item[nameField]}` : item[textField];
-            selectElement.appendChild(option);
-        });
-    }
-
-    async fetchDataIfNeeded() {
-        try {
-            // Параллельная загрузка
-            const [productsRes, mastersRes, lotsRes] = await Promise.all([
-                api.getProducts(),
-                api.getUsersByRole('master'), // Используем специальный метод
-                api.getLotsWithMasters('active')
-            ]);
-
-            this.productsCache = productsRes.data || [];
-            this.mastersCache = mastersRes.data || [];
-            this.lotsCache = lotsRes.data || [];
-            
-            return true;
-        } catch (error) {
-            console.error('Failed to fetch data for application modal:', error);
-            alert('Не удалось загрузить справочные данные. Проверьте консоль.');
-            return false;
-        }
-    }
-
-    async show({ mode = 'create', onSave = () => {} }) {
-        this.onSave = onSave;
-        this.editMode = mode === 'edit';
-        this.form.reset();
-
-        const dataLoaded = await this.fetchDataIfNeeded();
-        if (!dataLoaded) return;
-        
-        this.title.textContent = 'Создать партию заявок';
-        
-        const currentUser = authManager.getUser(); // Метод из authManager, не auth
-        const isMaster = currentUser && currentUser.role === 'master';
-
-        // Заполняем списки
-        const activeProducts = this.productsCache.filter(p => p.is_active);
-        const activeMasters = this.mastersCache.filter(m => m.is_active);
-        const activeLots = this.lotsCache.filter(l => l.is_active);
-
-        // Изначально продукт пустой
-        this.populateSelect(this.productIdSelect, [], { placeholder: 'Сначала выберите участок' });
-        this.populateSelect(this.masterIdSelect, activeMasters, { valueField: 'id', textField: 'first_name', nameField: 'last_name', placeholder: 'Выберите мастера' });
-
-        this.masterIdSelect.disabled = isMaster;
-
-        if (isMaster) {
-            this.masterIdSelect.value = currentUser.id; 
-            const masterLots = activeLots.filter(lot =>
-                lot.main_master_id === currentUser.id || lot.temp_master_id === currentUser.id
-            );
-            this.populateSelect(this.lotIdSelect, masterLots, { valueField: 'id', textField: 'name', placeholder: 'Выберите ваш участок' });
-            
-            if (masterLots.length === 1) {
-                this.lotIdSelect.value = masterLots[0].id;
-                this.handleLotChange();
-            }
-        } else {
-            this.populateSelect(this.lotIdSelect, activeLots, { valueField: 'id', textField: 'name', placeholder: 'Выберите участок' });
-            this.masterIdSelect.value = '';
-        }
-        
-        this.hasSerialsCheckbox.checked = true;
-        this.toggleSerialsContainer();
-        this.quantityInput.value = 1;
-        this.renderSerialInputs();
-        
-        this.modal.style.display = 'block';
-    }
-
-    hide() {
-        this.modal.style.display = 'none';
-        this.form.reset();
-    }
-
-    async handleSubmit(event) {
-        event.preventDefault();
-        
-        const quantity = parseInt(this.quantityInput.value);
-        const has_serial_numbers = this.hasSerialsCheckbox.checked;
-        const serial_data = [];
-
-        if (has_serial_numbers) {
-            this.serialsContainer.querySelectorAll('.serial-photo-row').forEach(row => {
-                serial_data.push({
-                    serial_number: row.querySelector('.serial-number-input').value.trim(),
-                    mki_photo_url: row.querySelector('.serial-photo-input').value.trim()
-                });
-            });
-            if (serial_data.some(d => !d.serial_number)) {
-                alert('Все поля серийных номеров должны быть заполнены.');
-                return;
-            }
-        }
-
-        const batchData = {
-            product_id: parseInt(this.productIdSelect.value),
-            lot_id: parseInt(this.lotIdSelect.value),
-            master_id: parseInt(this.masterIdSelect.value),
-            production_order_number: this.productionOrderInput.value.trim(),
-            drawing_number: this.drawingNumberInput.value.trim(),
-            desired_inspection_time: new Date(this.desiredTimeInput.value).toISOString(),
-            quantity: quantity,
-            mki_photo_url: this.mkiPhotoInput ? this.mkiPhotoInput.value.trim() : null,
-            has_serial_numbers: has_serial_numbers,
-            serial_data: serial_data,
-            notes: this.notesTextarea.value.trim()
-        };
-        
-        if (!batchData.product_id || !batchData.lot_id || !batchData.master_id || !batchData.desired_inspection_time || !batchData.quantity) {
-            alert('Заполните обязательные поля!');
-            return;
-        }
-
-        const submitButton = this.form.querySelector('button[type="submit"]');
-        try {
-            submitButton.disabled = true;
-            submitButton.textContent = 'Сохранение...';
-            if (this.onSave) {
-                 await this.onSave(batchData);
-            }
-        } catch (error) {
-            console.error('Ошибка:', error);
-            alert(`Не удалось сохранить: ${error.message}`);
-        } finally {
-            submitButton.disabled = false;
-            submitButton.textContent = 'Сохранить';
+            container.appendChild(row);
         }
     }
 }

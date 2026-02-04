@@ -1,180 +1,80 @@
 const Product = require('../models/Product');
 const Lot = require('../models/Lot');
 const User = require('../models/User');
+const { AppError } = require('../utils/errorHandler');
 
 class ProductService {
-  static async getAllProducts({ limit = 100, offset = 0, status = 'active' } = {}) {
+  static async getAllProducts(limit = 100, offset = 0, status = 'active') {
     try {
-      const filters = { status };
-      const products = await Product.findAll({ limit, offset, filters });
-      const total = await Product.count(filters);
-
-      return {
-        products,
-        pagination: { total, limit, offset, hasMore: offset + products.length < total }
-      };
+      const products = await Product.findAll({ limit, offset, filters: { status } });
+      const total = await Product.count({ status });
+      return { products, pagination: { total, limit, offset, hasMore: offset + products.length < total } };
     } catch (error) {
-      throw new Error(`Ошибка получения изделий: ${error.message}`);
+      throw new AppError(`Ошибка получения изделий: ${error.message}`, 500);
     }
   }
 
   static async getProductById(id) {
-    try {
-      const product = await Product.findById(id);
-      if (!product) throw new Error('Изделие не найдено');
-      return product;
-    } catch (error) {
-      throw new Error(`Ошибка получения изделия: ${error.message}`);
-    }
+    const product = await Product.findById(id);
+    if (!product) throw new AppError('Изделие не найдено', 404);
+    return product;
   }
 
   static async getProductsByLot(lotId, limit = 100, offset = 0) {
-    try {
-      const lot = await Lot.findById(lotId);
-      if (!lot) throw new Error('Участок не найден');
-      
-      const products = await Product.findByLotId(lotId, limit, offset);
-      return products;
-    } catch (error) {
-      throw new Error(`Ошибка получения изделий участка: ${error.message}`);
+    const lot = await Lot.findById(lotId);
+    if (!lot) throw new AppError('Участок не найден', 404);
+    return await Product.findByLotId(lotId, limit, offset);
+  }
+
+  static _prepareChecklist(productData) {
+    if (productData.checklist && Array.isArray(productData.checklist)) {
+      return JSON.stringify(productData.checklist);
     }
+    return productData.checklist;
   }
 
   static async createProduct(productData) {
-    try {
-      // Проверка уникальности (имя + участок) среди ВСЕХ
-      const existing = await Product.findAll({ 
-        filters: { 
-          name: productData.name, 
-          lot_id: productData.lot_id 
-        }, 
-        status: 'all' 
-      });
-
-      if (existing.length > 0) {
-        throw new Error(`Изделие "${productData.name}" уже существует на этом участке`);
-      }
-
-      // Проверка основного участка
-      if (productData.lot_id) {
-        const lot = await Lot.findById(productData.lot_id);
-        if (!lot) throw new Error('Основной участок не найден');
-      }
-
-      // Проверка предыдущего участка
-      if (productData.previous_lot_id) {
-        const lot = await Lot.findById(productData.previous_lot_id);
-        if (!lot) throw new Error('Предыдущий участок не найден');
-      }
-
-      // Проверка следующего участка
-      if (productData.next_lot_id) {
-        const lot = await Lot.findById(productData.next_lot_id);
-        if (!lot) throw new Error('Следующий участок не найден');
-      }
-
-      // Проверка контролёра
-      if (productData.default_inspector_id) {
-        const inspector = await User.findById(productData.default_inspector_id);
-        if (!inspector) throw new Error('Контролёр не найден');
-        if (inspector.role !== 'inspector') {
-          throw new Error('Указанный пользователь не является контролёром');
-        }
-      }
-
-      // Гарантируем, что checklist является строкой JSON перед сохранением
-      if (productData.checklist && Array.isArray(productData.checklist)) {
-        productData.checklist = JSON.stringify(productData.checklist);
-      }
-
-      const product = await Product.create(productData);
-      return product;
-    } catch (error) {
-      throw new Error(`Ошибка создания изделия: ${error.message}`);
+    if (productData.lot_id) {
+      const lot = await Lot.findById(productData.lot_id);
+      if (!lot) throw new AppError('Участок не найден', 404);
     }
+
+    if (productData.default_inspector_id) {
+      const inspector = await User.findById(productData.default_inspector_id);
+      if (!inspector || inspector.role !== 'inspector') {
+        throw new AppError('Указанный пользователь не найден или не является контролёром', 400);
+      }
+    }
+
+    productData.checklist = this._prepareChecklist(productData);
+    return await Product.create(productData);
   }
 
   static async updateProduct(id, productData) {
-    try {
-      const product = await Product.findById(id);
-      if (!product) throw new Error('Изделие не найдено');
+    const product = await Product.findById(id);
+    if (!product) throw new AppError('Изделие не найдено', 404);
 
-      // Проверка основного участка
-      if (productData.lot_id) {
-        const lot = await Lot.findById(productData.lot_id);
-        if (!lot) throw new Error('Основной участок не найден');
-      }
-
-      // Проверка предыдущего участка
-      if (productData.previous_lot_id) {
-        const lot = await Lot.findById(productData.previous_lot_id);
-        if (!lot) throw new Error('Предыдущий участок не найден');
-      }
-
-      // Проверка следующего участка
-      if (productData.next_lot_id) {
-        const lot = await Lot.findById(productData.next_lot_id);
-        if (!lot) throw new Error('Следующий участок не найден');
-      }
-
-      // Проверка контролёра
-      if (productData.default_inspector_id) {
-        const inspector = await User.findById(productData.default_inspector_id);
-        if (!inspector) throw new Error('Контролёр не найден');
-        if (inspector.role !== 'inspector') {
-          throw new Error('Указанный пользователь не является контролёром');
-        }
-      }
-
-      // Гарантируем, что checklist является строкой JSON перед сохранением
-      if (productData.checklist && Array.isArray(productData.checklist)) {
-        productData.checklist = JSON.stringify(productData.checklist);
-      }
-
-      const updated = await Product.update(id, productData);
-      return updated;
-    } catch (error) {
-      throw new Error(`Ошибка обновления изделия: ${error.message}`);
+    if (productData.lot_id) {
+      const lot = await Lot.findById(productData.lot_id);
+      if (!lot) throw new AppError('Участок не найден', 404);
     }
+
+    productData.checklist = this._prepareChecklist(productData);
+    return await Product.update(id, productData);
   }
 
   static async deleteProduct(id) {
-    try {
-      const product = await Product.findById(id);
-      if (!product) throw new Error('Изделие не найдено');
-
-      await Product.delete(id);
-      return { success: true, message: 'Изделие деактивировано' };
-    } catch (error) {
-      throw new Error(`Ошибка удаления изделия: ${error.message}`);
-    }
+    const product = await Product.findById(id);
+    if (!product) throw new AppError('Изделие не найдено', 404);
+    await Product.delete(id);
+    return { success: true, message: 'Изделие деактивировано' };
   }
 
   static async restoreProduct(id) {
-    try {
-      // ЯВНО УКАЗЫВАЕМ ИСКАТЬ СРЕДИ ВСЕХ (true)
-      const product = await Product.findById(id, true);
-      if (!product) {
-        throw new Error('Изделие не найдено');
-      }
-      if (product.is_active) {
-        throw new Error('Изделие уже активно');
-      }
-
-      await Product.reactivate(id);
-      return { success: true, message: 'Изделие успешно восстановлено' };
-    } catch (error) {
-      throw new Error(`Ошибка восстановления изделия: ${error.message}`);
-    }
-  }
-
-  static async getProductsByType(productType, limit = 100, offset = 0) {
-    try {
-      const products = await Product.findByProductType(productType, limit, offset);
-      return products;
-    } catch (error) {
-      throw new Error(`Ошибка получения изделий по типу: ${error.message}`);
-    }
+    const product = await Product.findById(id, true);
+    if (!product) throw new AppError('Изделие не найдено', 404);
+    await Product.reactivate(id);
+    return { success: true, message: 'Изделие успешно восстановлено' };
   }
 }
 

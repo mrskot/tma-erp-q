@@ -46,11 +46,15 @@ class TMA_API {
         this.showLoader();
         try {
             const response = await fetch(url, config);
+            const json = await response.json();
+
             if (!response.ok) {
-                const errorData = await response.json().catch(() => ({ message: response.statusText }));
-                throw new Error(errorData.message || `HTTP error! status: ${response.status}`);
+                throw new Error(json.message || `Ошибка сервера: ${response.status}`);
             }
-            return await response.json();
+
+            // МАГИЯ ТУТ: если бэкенд прислал { success: true, data: ... }, 
+            // возвращаем только data, чтобы не переписывать логику страниц
+            return json.data !== undefined ? { success: true, data: json.data } : json;
         } catch (error) {
             console.error(`API Error on ${endpoint}:`, error);
             throw error;

@@ -1,60 +1,27 @@
-// public/js/components/BaseModal.js
 export class BaseModal {
     constructor(modalId, formId) {
         this.modalElement = document.getElementById(modalId);
-        if (!this.modalElement) {
-            console.error(`HTML для модального окна с ID "${modalId}" не найден`);
-            return;
-        }
         this.form = document.getElementById(formId);
-        this.onSave = null;
-
-        this.modalElement.querySelector('.close').addEventListener('click', () => this.hide());
-        this.form.addEventListener('submit', (e) => this.handleSubmit(e));
+        if (!this.modalElement || !this.form) return;
+        this.modalElement.querySelector('.close').onclick = () => this.hide();
     }
 
-    async handleSubmit(event) {
-        event.preventDefault();
-        const formData = new FormData(this.form);
-        const data = Object.fromEntries(formData.entries());
-
-        // Sanitize empty strings to null
-        for (const key in data) {
-            if (data[key] === '') {
-                data[key] = null;
-            }
-        }
-
-        // Check if this is a create operation (no ID or ID is empty)
-        const isCreating = !data.id || data.id === '';
-        if (isCreating) {
-            delete data.id;
-        }
-        
-        const submitButton = this.form.querySelector('button[type="submit"]');
-        submitButton.disabled = true;
-        submitButton.textContent = 'Сохранение...';
-
-        try {
-            if (this.onSave) {
-                await this.onSave(data);
-            }
-            this.hide(); // Закрываем при успехе
-        } catch (error) {
-            console.error("Ошибка во время сохранения из модального окна:", error);
-        } finally {
-            submitButton.disabled = false;
-            submitButton.textContent = 'Сохранить';
-        }
+    populateSelect(selectEl, items, { valueField = 'id', textField = 'name', placeholder = 'Выберите...' } = {}) {
+        if (!selectEl) return;
+        selectEl.innerHTML = `<option value="">${placeholder}</option>`;
+        items.forEach(item => {
+            const option = document.createElement('option');
+            option.value = item[valueField];
+            option.textContent = item[textField];
+            selectEl.appendChild(option);
+        });
     }
 
-    show(options) {
+    show(options = {}) {
         this.onSave = options.onSave;
         this.form.reset();
         this.modalElement.style.display = 'block';
     }
 
-    hide() {
-        if (this.modalElement) this.modalElement.style.display = 'none';
-    }
+    hide() { this.modalElement.style.display = 'none'; }
 }

@@ -1,209 +1,147 @@
 const User = require('../models/User');
-const config = require('../config/app');
-const bcrypt = require('bcryptjs');
+const { AppError } = require('../utils/errorHandler');
+const activityLogService = require('./activityLogService');
 
 class UserService {
   static async authenticate(telegramId, pinCode) {
-    try {
-      const user = await User.findByPin(pinCode);
-      
-      if (!user || String(user.telegram_id) !== String(telegramId)) {
-        throw new Error('Неверный PIN-код или пользователь не найден');
-      }
-
-      await User.updateLoginStats(user.id);
-
-      return {
-        id: user.id,
-        telegram_id: user.telegram_id,
-        first_name: user.first_name,
-        last_name: user.last_name,
-        username: user.username,
-        role: user.role,
-        phone_number: user.phone_number,
-        last_login_at: user.last_login_at
-      };
-    } catch (error) {
-      throw new Error(`Ошибка аутентификации: ${error.message}`);
+    const user = await User.findByTelegramId(telegramId);
+    if (!user) {
+      throw new AppError('Пользователь не найден в системе', 404);
     }
+
+    if (user.pin_code !== pinCode) {
+      throw new AppError('Неверный PIN-код', 401);
+    }
+
+    await User.updateLoginStats(user.id);
+    return user;
   }
 
   static async getProfile(telegramId) {
-    try {
-      const user = await User.findByTelegramId(telegramId);
-      
-      if (!user) {
-        throw new Error('Пользователь не найден');
-      }
-
-      return {
-        id: user.id,
-        telegram_id: user.telegram_id,
-        first_name: user.first_name,
-        last_name: user.last_name,
-        username: user.username,
-        role: user.role,
-        phone_number: user.phone_number,
-        is_active: user.is_active,
-        last_login_at: user.last_login_at,
-        created_at: user.created_at
-      };
-    } catch (error) {
-      throw new Error(`Ошибка получения профиля: ${error.message}`);
+    const user = await User.findByTelegramId(telegramId);
+    if (!user) {
+      throw new AppError('Профиль не найден', 404);
     }
+    return user;
   }
 
   static async getAllUsers(limit = 100, offset = 0, status = 'active') {
     try {
-
-
-      const filters = { status };
-      const users = await User.findAll({ limit, offset, filters });
-      const total = await User.count(filters);
+      const users = await User.findAll({ limit, offset, filters: { status } });
+      const total = await User.count({ status });
 
       return {
-        users: users.map(user => ({
-          id: user.id,
-          telegram_id: user.telegram_id,
-          first_name: user.first_name,
-          last_name: user.last_name,
-          username: user.username,
-          bitrix_id: user.bitrix_id, // <-- ДОБАВЛЕНО
-          pin_code: user.pin_code,   // <-- ДОБАВЛЕНО
-          role: user.role,
-          is_active: user.is_active,
-          created_at: user.created_at
-        })),
-        pagination: {
-          total,
-          limit,
-          offset,
-          hasMore: offset + users.length < total
-        }
+        users,
+        pagination: { total, limit, offset, hasMore: offset + users.length < total }
       };
     } catch (error) {
-      throw new Error(`Ошибка получения пользователей: ${error.message}`);
+      throw new AppError(`Ошибка получения списка пользователей: ${error.message}`, 500);
     }
   }
 
-  static async createUser(userData) {
-    try {
-      // Генерация PIN-кода если не предоставлен
-      if (!userData.pin_code) {
-        userData.pin_code = Math.floor(1000 + Math.random() * 9000).toString();
-      }
-
-      // Проверка уникальности telegram_id
-      const existingUser = await User.findByTelegramId(userData.telegram_id);
-      if (existingUser) {
-        throw new Error('Пользователь с таким Telegram ID уже существует');
-      }
-
-      const user = await User.create(userData);
-      
-      return {
-        id: user.id,
-        telegram_id: user.telegram_id,
-        first_name: user.first_name,
-        last_name: user.last_name,
-        username: user.username,
-        role: user.role,
-        pin_code: user.pin_code, // Возвращаем PIN только при создании
-        created_at: user.created_at
-      };
-    } catch (error) {
-      throw new Error(`Ошибка создания пользователя: ${error.message}`);
+  static async createUser(userData, performer) {
+    const existingUser = await User.findByTelegramId(userData.telegram_id);
+    if (existingUser) {
+      throw new AppError('Пользователь с таким Telegram ID уже зарегистрирован', 400);
     }
+
+    if (!userData.pin_code) {
+      userData.pin_code = Math.floor(1000 + Math.random() * 9000).toString();
+    }
+
+    const user = await User.create(userData);
+
+    await activityLogService.log({
+      userId: performer.id,
+      userRole: performer.role,
+      actionType: 'create',
+      entityType: 'user',
+      entityId: user.id,
+      newData: user,
+      description: `Создание пользователя ${user.username}`
+    });
+
+    return user;
   }
 
-  static async updateUser(id, userData) {
-    try {
-      const user = await User.update(id, userData);
-      
-      if (!user) {
-        throw new Error('Пользователь не найден');
-      }
-
-      return {
-        id: user.id,
-        telegram_id: user.telegram_id,
-        first_name: user.first_name,
-        last_name: user.last_name,
-        username: user.username,
-        role: user.role,
-        updated_at: user.updated_at
-      };
-    } catch (error) {
-      throw new Error(`Ошибка обновления пользователя: ${error.message}`);
+  static async updateUser(id, userData, performer) {
+    const oldData = await User.findById(id);
+    if (!oldData) {
+      throw new AppError('Пользователь не найден', 404);
     }
+
+    if (userData.telegram_id && userData.telegram_id !== oldData.telegram_id) {
+      const existing = await User.findByTelegramId(userData.telegram_id);
+      if (existing) throw new AppError('Этот Telegram ID уже занят другим пользователем', 400);
+    }
+
+    const updated = await User.update(id, userData);
+
+    await activityLogService.log({
+      userId: performer.id,
+      userRole: performer.role,
+      actionType: 'update',
+      entityType: 'user',
+      entityId: id,
+      oldData,
+      newData: updated,
+      description: `Обновление данных пользователя ${updated.username}`
+    });
+
+    return updated;
   }
 
-  static async deleteUser(id) {
-    try {
-      const result = await User.delete(id);
-      
-      if (result === 0) {
-        throw new Error('Пользователь не найден');
-      }
+  static async deleteUser(id, performer) {
+    const user = await User.findById(id);
+    if (!user) throw new AppError('Пользователь не найден', 404);
+    
+    await User.delete(id);
 
-      return { success: true, message: 'Пользователь деактивирован' };
-    } catch (error) {
-      throw new Error(`Ошибка удаления пользователя: ${error.message}`);
-    }
+    await activityLogService.log({
+      userId: performer.id,
+      userRole: performer.role,
+      actionType: 'delete',
+      entityType: 'user',
+      entityId: id,
+      oldData: user,
+      description: `Деактивирован пользователь ${user.username}`
+    });
+
+    return { success: true, message: 'Пользователь успешно деактивирован' };
   }
 
-  static async reactivateUser(id) {
-    try {
-      const result = await User.reactivate(id);
-      
-      if (result === 0) {
-        throw new Error('Пользователь не найден или уже активен');
-      }
+  static async reactivateUser(id, performer) {
+    // ВТОРОЙ аргумент true говорит BaseModel искать в том числе и неактивных
+    const user = await User.findById(id, true);
+    if (!user) throw new AppError('Пользователь не найден', 404);
+    
+    await User.reactivate(id);
 
-      return { success: true, message: 'Пользователь восстановлен' };
-    } catch (error) {
-      throw new Error(`Ошибка восстановления пользователя: ${error.message}`);
-    }
+    await activityLogService.log({
+      userId: performer.id,
+      userRole: performer.role,
+      actionType: 'restore',
+      entityType: 'user',
+      entityId: id,
+      newData: user,
+      description: `Восстановление пользователя ${user.username}`
+    });
+
+    return { success: true, message: 'Пользователь восстановлен' };
   }
 
   static async getUsersByRole(role) {
-    try {
-      const users = await User.findAll({ filters: { role } });
-      
-      return users.map(user => ({
-        id: user.id,
-        telegram_id: user.telegram_id,
-        first_name: user.first_name,
-        last_name: user.last_name,
-        username: user.username,
-        phone_number: user.phone_number,
-        role: user.role,
-        is_active: user.is_active
-      }));
-    } catch (error) {
-      throw new Error(`Ошибка получения пользователей по роли: ${error.message}`);
-    }
+    return await User.findAll({ filters: { role, status: 'active' } });
   }
 
   static async resetPinCode(telegramId) {
-    try {
-      const user = await User.findByTelegramId(telegramId);
-      
-      if (!user) {
-        throw new Error('Пользователь не найден');
-      }
+    const user = await User.findByTelegramId(telegramId);
+    if (!user) throw new AppError('Пользователь не найден', 404);
 
-      const newPin = Math.floor(1000 + Math.random() * 9000).toString();
-      const updatedUser = await User.update(user.id, { pin_code: newPin });
-      
-      return {
-        telegram_id: updatedUser.telegram_id,
-        new_pin: newPin,
-        updated_at: updatedUser.updated_at
-      };
-    } catch (error) {
-      throw new Error(`Ошибка сброса PIN-кода: ${error.message}`);
-    }
+    const newPin = Math.floor(1000 + Math.random() * 9000).toString();
+    await User.update(user.id, { pin_code: newPin });
+    
+    return { telegram_id: telegramId, new_pin: newPin };
   }
 }
 
