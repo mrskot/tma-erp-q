@@ -77,8 +77,8 @@ class Product extends BaseModel {
 
   // --- Статические обертки (Delegates to instance) ---
 
-  static async findById(id) {
-    return Product.instance.findById(id);
+  static async findById(id, includeInactive = false) {
+    return Product.instance.findById(id, includeInactive);
   }
 
   static async findAll(params) {

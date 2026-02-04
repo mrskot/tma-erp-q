@@ -17,24 +17,20 @@ class UserController {
   });
 
   static getProfile = asyncHandler(async (req, res) => {
-    if (!req.user) throw new AppError('Не авторизован', 401);
+    // The requireAuth middleware already ensures req.user exists.
     const profile = await UserService.getProfile(req.user.telegram_id);
     res.json({ success: true, data: profile });
   });
 
   static getAllUsers = asyncHandler(async (req, res) => {
-    const allowedRoles = ['admin', 'director', 'inspector', 'master'];
-    if (!req.user || !allowedRoles.includes(req.user.role)) {
-      throw new AppError('Доступ запрещен', 403);
-    }
-
+    // RBAC is now handled by middleware, removing role check from controller.
     const { limit = 100, offset = 0, status = 'active' } = req.query;
     const result = await UserService.getAllUsers(parseInt(limit), parseInt(offset), status);
-    res.json({ success: true, data: result.users, pagination: result.pagination });
+    res.json({ success: true, data: result });
   });
 
   static createUser = asyncHandler(async (req, res) => {
-    if (!req.user || req.user.role !== 'admin') throw new AppError('Доступ запрещен', 403);
+    // RBAC handled by middleware.
     const errors = validationResult(req);
     if (!errors.isEmpty()) throw new AppError('Ошибка валидации', 400, errors.array());
 
@@ -43,7 +39,7 @@ class UserController {
   });
 
   static updateUser = asyncHandler(async (req, res) => {
-    if (!req.user || req.user.role !== 'admin') throw new AppError('Доступ запрещен', 403);
+    // RBAC handled by middleware.
     const errors = validationResult(req);
     if (!errors.isEmpty()) throw new AppError('Ошибка валидации', 400, errors.array());
 
@@ -52,13 +48,13 @@ class UserController {
   });
 
   static deleteUser = asyncHandler(async (req, res) => {
-    if (!req.user || req.user.role !== 'admin') throw new AppError('Доступ запрещен', 403);
+    // RBAC handled by middleware.
     const result = await UserService.deleteUser(parseInt(req.params.id), req.user);
     res.json({ success: true, message: result.message });
   });
 
   static reactivateUser = asyncHandler(async (req, res) => {
-    if (!req.user || req.user.role !== 'admin') throw new AppError('Доступ запрещен', 403);
+    // RBAC handled by middleware.
     const result = await UserService.reactivateUser(parseInt(req.params.id), req.user);
     res.json({ success: true, message: result.message });
   });
@@ -66,11 +62,12 @@ class UserController {
   static getUsersByRole = asyncHandler(async (req, res) => {
     const { role } = req.params;
     const users = await UserService.getUsersByRole(role);
-    res.json({ success: true, data: users });
+    // FIX: Standardize response structure.
+    res.json({ success: true, data: { users, pagination: null } });
   });
 
   static resetPinCode = asyncHandler(async (req, res) => {
-    if (!req.user || req.user.role !== 'admin') throw new AppError('Доступ запрещен', 403);
+    // RBAC handled by middleware.
     const result = await UserService.resetPinCode(req.body.telegram_id);
     res.json({ success: true, message: 'PIN-код успешно сброшен', data: result });
   });

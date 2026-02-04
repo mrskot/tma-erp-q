@@ -1,4 +1,3 @@
-// public/js/pages/dashboard.js
 import api from '../api.js';
 import store from '../store.js';
 import { UI } from '../components/UIComponents.js';
@@ -62,14 +61,14 @@ async function renderRoleDashboard(container, user, modals) {
         if (user.role === 'master') {
             section1Title.textContent = '🛠 Требует внимания (Дефекты)';
             section2Title.textContent = '📋 Мои последние заявки';
-
+            
             const [discRes, appRes] = await Promise.all([
                 api.getDiscrepancies({ responsible_id: user.id, status: 'new,assigned,in_progress,rejected' }),
                 api.getApplications({ master_id: user.id, limit: 5 })
             ]);
-
-            renderGrid(section1Grid, discRes.data, 'discrepancy', modals);
-            renderGrid(section2Grid, appRes.data, 'application', modals);
+            
+            renderGrid(section1Grid, discRes.discrepancies || [], 'discrepancy', modals);
+            renderGrid(section2Grid, appRes.data || [], 'application', modals);
 
         } else if (user.role === 'inspector') {
             section1Title.textContent = '🔍 Заявки на проверку';
@@ -80,8 +79,8 @@ async function renderRoleDashboard(container, user, modals) {
                 api.getDiscrepancies({ status: 'resolved' })
             ]);
 
-            renderGrid(section1Grid, appRes.data, 'application', modals);
-            renderGrid(section2Grid, discRes.data, 'discrepancy', modals);
+            renderGrid(section1Grid, appRes.data || [], 'application', modals);
+            renderGrid(section2Grid, discRes.discrepancies || [], 'discrepancy', modals);
         }
     } catch (error) {
         container.innerHTML += `<p class="error-message">Ошибка загрузки данных: ${error.message}</p>`;
@@ -127,13 +126,14 @@ export async function init(container, modals) {
 
     if (user.role === 'admin' || user.role === 'director') {
         try {
-            const [appStatsRes, discStatsRes] = await Promise.all([
+            const [appStats, discStats] = await Promise.all([
                 api.request('/applications/statistics'),
                 api.request('/discrepancies/statistics')
             ]);
+            
             container.innerHTML = renderAdminDashboard({
-                applications: appStatsRes.data,
-                discrepancies: discStatsRes.data,
+                applications: appStats,
+                discrepancies: discStats,
             });
             const refreshBtn = document.getElementById('refresh-dashboard');
             if (refreshBtn) refreshBtn.onclick = () => init(container, modals);
@@ -144,4 +144,3 @@ export async function init(container, modals) {
         await renderRoleDashboard(container, user, modals);
     }
 }
-

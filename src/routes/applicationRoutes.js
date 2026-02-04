@@ -1,21 +1,15 @@
+// src/routes/applicationRoutes.js
 const express = require('express');
 const { body, param } = require('express-validator');
 const ApplicationController = require('../controllers/applicationController');
 const { authenticateJWT } = require('../middleware/auth');
-const rbacMiddleware = require('../middleware/rbacMiddleware'); 
-
+const rbacMiddleware = require('../middleware/rbacMiddleware');
 const router = express.Router();
-
-// Применяем middleware аутентичности ко всем роутам этого файла
 router.use(authenticateJWT);
-
-// GET /api/v1/applications - Получение списка заявок (фильтруется по роли и query-параметру ?status=new)
-router.get(
-    '/', 
-    rbacMiddleware(['admin', 'director', 'inspector', 'master']), 
-    ApplicationController.getAllApplications
-);
-
+// ... (остальные роуты без изменений, так как они уже используют статические вызовы)
+// GET /api/v1/applications
+router.get('/', rbacMiddleware(['admin', 'director', 'inspector', 'master']), ApplicationController.getAllApplications);
+// ...
 // GET /api/v1/applications/statistics - Получение статистики
 router.get(
     '/statistics', 

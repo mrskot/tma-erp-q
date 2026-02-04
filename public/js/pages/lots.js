@@ -7,12 +7,18 @@ let state = { filter: 'active' };
 
 async function loadDataAndUpdateView() {
     try {
-        // Запрашиваем ВСЕГДА ВСЕ ДАННЫЕ, чтобы избежать рассинхрона
-        const [lotsRes, usersRes] = await Promise.all([api.getLots('all'), api.getUsers('active')]);
-        store.setLots(lotsRes.data);
-        store.setMasters(usersRes.data.filter(u => u.role === 'master'));
-        render(); // render() сам отфильтрует данные по state.filter
+        const [lotsRes, usersRes] = await Promise.all([
+            api.getLots('all'),
+            api.getUsers('active')
+        ]);
+        const masters = (usersRes && usersRes.users)
+            ? usersRes.users.filter(u => u.role === 'master')
+            : [];
+        store.setLots(lotsRes.lots || []);
+        store.setMasters(masters);
+        render();
     } catch (error) {
+        console.error("Error in loadDataAndUpdateView for lots:", error);
         document.getElementById('page-content').innerHTML = `<p class="error-message">Ошибка загрузки: ${error.message}</p>`;
     }
 }
@@ -63,40 +69,33 @@ function render() {
 function handlePageClick(event) {
     const button = event.target.closest('button[data-action]');
     if (!button) return;
-
     const action = button.dataset.action;
-    const lotId = button.closest('tr')?.dataset.lotId || button.dataset.lotId;
-
+    // FIX: Updated selector from 'tr' to '.mobile-card'
+    const lotId = button.closest('.mobile-card')?.dataset.lotId || button.dataset.lotId;
+    // Helper for create/update actions
+    const onSave = async (apiCall) => {
+        try {
+            await apiCall();
+            lotModal.hide();
+            await loadDataAndUpdateView();
+        } catch (error) {
+            alert(`Ошибка сохранения: ${error.message}`);
+        }
+    };
     switch (action) {
         case 'create':
-            lotModal.show({ 
-                mode: 'create', 
-                masters: store.state.masters, 
-                onSave: async (data) => {
-                    try {
-                        await api.createLot(data); 
-                        lotModal.hide(); 
-                        await loadDataAndUpdateView();
-                    } catch (error) {
-                        alert(`Ошибка создания: ${error.message}`);
-                    }
-                }
+            lotModal.show({
+                mode: 'create',
+                masters: store.state.masters,
+                onSave: (data) => onSave(() => api.createLot(data))
             });
             break;
         case 'edit':
-            lotModal.show({ 
-                mode: 'edit', 
-                masters: store.state.masters, 
-                lotData: store.getLotById(lotId), 
-                onSave: async (data) => {
-                    try {
-                        await api.updateLot(lotId, data); 
-                        lotModal.hide(); 
-                        await loadDataAndUpdateView();
-                    } catch (error) {
-                        alert(`Ошибка обновления: ${error.message}`);
-                    }
-                }
+            lotModal.show({
+                mode: 'edit',
+                masters: store.state.masters,
+                lotData: store.getLotById(lotId),
+                onSave: (data) => onSave(() => api.updateLot(lotId, data))
             });
             break;
         case 'delete':

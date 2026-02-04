@@ -116,24 +116,24 @@ class BaseModel {
   async count(filters = {}) {
     const query = this.db(this.tableName);
     const reservedKeys = ['status'];
-
+    // This logic MUST be identical to findAll's filtering logic
     const status = filters.status || 'active';
     if (status === 'inactive') {
       query.where(`${this.tableName}.is_active`, false);
     } else if (status === 'all') {
-      // Все
-    } else {
+      // No status filter needed
+    } else { // 'active' or any other default
       query.where(`${this.tableName}.is_active`, true);
     }
-
+    // Apply other filters, skipping reserved keys
     Object.keys(filters).forEach(key => {
       if (filters[key] !== undefined && filters[key] !== null && !reservedKeys.includes(key)) {
         query.where(`${this.tableName}.${key}`, filters[key]);
       }
     });
-
+    // The actual fix: use a clean count query without side effects from other methods.
     const result = await query.count(`${this.tableName}.id as count`).first();
-    return parseInt(result.count || result['count(*)'], 10);
+    return parseInt(result.count || result['count(*)'] || 0, 10);
   }
 }
 

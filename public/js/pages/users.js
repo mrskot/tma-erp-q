@@ -14,7 +14,8 @@ function getRoleName(role) {
 async function loadDataAndUpdateView() {
     try {
         const response = await api.getUsers('all');
-        store.setUsers(response.data);
+        // FINAL FIX: The API client returns the 'data' object which contains 'users'.
+        store.setUsers(response.users || []);
         render();
     } catch (error) {
         document.getElementById('page-content').innerHTML = `<p class="error-message">Ошибка загрузки: ${error.message}</p>`;
@@ -73,32 +74,47 @@ function render() {
 function handlePageClick(event) {
     const button = event.target.closest('button[data-action]');
     if (!button) return;
-
     const action = button.dataset.action;
-    const userId = button.closest('tr')?.dataset.userId || button.dataset.userId;
-
-    const onSaveSuccess = async (apiCall) => {
+    // FIX: Updated selector from 'tr' to '.mobile-card' to match the new UI.
+    const userId = button.closest('.mobile-card')?.dataset.userId || button.dataset.userId;
+    // Helper function for DRY code in create/update actions
+    const onSave = async (apiCall) => {
         try {
             await apiCall();
             userModal.hide();
             await loadDataAndUpdateView();
         } catch (error) {
-            alert(`Ошибка: ${error.message}`);
+            // Now we can show backend validation errors to the user
+            alert(`Ошибка сохранения: ${error.message}`);
         }
     };
-
     switch (action) {
         case 'create':
-            userModal.show({ mode: 'create', onSave: (data) => onSaveSuccess(() => api.createUser(data)) });
+            userModal.show({
+                mode: 'create',
+                onSave: (data) => onSave(() => api.createUser(data))
+            });
             break;
         case 'edit':
-            userModal.show({ mode: 'edit', userData: store.getUserById(userId), onSave: (data) => onSaveSuccess(() => api.updateUser(userId, data)) });
+            userModal.show({
+                mode: 'edit',
+                userData: store.getUserById(userId),
+                onSave: (data) => onSave(() => api.updateUser(userId, data))
+            });
             break;
         case 'delete':
-            if (confirm('Деактивировать пользователя?')) api.deactivateUser(userId).then(loadDataAndUpdateView);
+            if (confirm('Деактивировать пользователя?')) {
+                api.deactivateUser(userId)
+                    .then(loadDataAndUpdateView)
+                    .catch(error => alert(`Ошибка удаления: ${error.message}`));
+            }
             break;
         case 'restore':
-            if (confirm('Восстановить пользователя?')) api.reactivateUser(userId).then(loadDataAndUpdateView);
+            if (confirm('Восстановить пользователя?')) {
+                api.reactivateUser(userId)
+                    .then(loadDataAndUpdateView)
+                    .catch(error => alert(`Ошибка восстановления: ${error.message}`));
+            }
             break;
     }
 }

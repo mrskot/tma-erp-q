@@ -1,195 +1,56 @@
-const config = require('../config/app');
-const db = require('../config/database');
+const User = require('../models/User');
+const { AppError } = require('../utils/errorHandler');
 
 /**
- * Middleware для эмуляции Telegram WebApp авторизации в режиме разработки
- * В production режиме используется реальная валидация Telegram InitData
+ * Middleware for faking Telegram authentication in a development environment.
+ * It identifies a user based on request headers or defaults to a predefined admin user,
+ * then attaches the user object to the request.
+ *
+ * This middleware NO LONGER creates users on the fly to avoid database pollution.
+ * It relies on the seed data being present.
  */
-const fakeTelegramAuth = async (req, res, next) => {
-  // Если выключена фейковая авторизация или production режим - пропускаем
-  if (!config.telegram.useFakeAuth || config.env === 'production') {
+async function fakeTelegramAuth(req, res, next) {
+  // This middleware should only run in development
+  if (process.env.NODE_ENV !== 'development' || process.env.USE_FAKE_TELEGRAM_AUTH !== 'true') {
     return next();
   }
 
-  // Пропускаем статические файлы (CSS, JS, изображения, HTML)
-  const staticExtensions = ['.css', '.js', '.png', '.jpg', '.jpeg', '.gif', '.svg', '.ico', '.html', '.htm'];
-  const isStaticFile = staticExtensions.some(ext => req.path.endsWith(ext));
+  // Allow skipping auth for public routes like login page assets
+  if (req.path.startsWith('/public') || req.path.startsWith('/css') || req.path.startsWith('/js')) {
+    return next();
+  }
+
+  // The default user for development will be the main admin from the seed file.
+  const defaultTelegramId = 'admin_123';
   
-  if (isStaticFile) {
-    return next();
-  }
-
-  // Пропускаем API маршруты, которые имеют свою аутентификацию
-  if (req.path.startsWith('/api/v1/users/auth')) {
-    return next();
-  }
-
-  // Пропускаем health checks
-  if (req.path.startsWith('/api/v1/health')) {
-    return next();
-  }
-
-  // Пропускаем корневой путь и страницы фронтенда
-  if (req.path === '/' || req.path.startsWith('/telegram') || req.path.startsWith('/admin') || req.path.startsWith('/test-telegram')) {
-    return next();
-  }
+  // Determine the user to impersonate from headers or use the default.
+  const telegramId = req.headers['x-telegram-id'] || defaultTelegramId;
 
   try {
-    // Получаем данные пользователя из заголовков или query параметров
-    const telegramId = req.headers['x-telegram-id'] || req.query.telegramId || 'dev_user_123';
-    const firstName = req.headers['x-first-name'] || req.query.firstName || 'Разработчик';
-    const lastName = req.headers['x-last-name'] || req.query.lastName || 'Тестовый';
-    const username = req.headers['x-username'] || req.query.username || 'dev_user';
-    const role = req.headers['x-role'] || req.query.role || 'master';
+    const user = await User.findByTelegramId(telegramId);
 
-    // Ищем пользователя в базе данных
-    let user = await db('users')
-      .where({ telegram_id: telegramId, is_active: true })
-      .first();
-
-    // Если пользователь не найден, создаем тестового пользователя
     if (!user) {
-      console.log(`[FakeTelegramAuth] Создаем нового пользователя: ${telegramId}`);
+      // CRITICAL CHANGE: Instead of creating a user, we now throw an error.
+      // This makes the development environment predictable and depends on seed data.
+      // If this error occurs, it means you need to run `npm run db:reset`.
+      console.error(`Fake Auth Error: Test user with telegram_id "${telegramId}" not found.`);
+      console.error('Please run "npm run db:reset" to seed the database with test users.');
       
-      // Вставляем пользователя
-      const newUser = {
-        telegram_id: telegramId,
-        first_name: firstName,
-        last_name: lastName,
-        username: username,
-        role: role,
-        pin_code: '1234',
-        is_active: true,
-        created_at: new Date(),
-        updated_at: new Date(),
-      };
-      
-      await db('users').insert(newUser);
-      
-      // Получаем созданного пользователя
-      user = await db('users')
-        .where({ telegram_id: telegramId, is_active: true })
-        .first();
+      // We pass a more developer-friendly error instead of a generic one.
+      return next(new AppError(
+        `Тестовый пользователь "${telegramId}" не найден. Выполните 'npm run db:reset'.`,
+        500
+      ));
     }
 
-    // Добавляем пользователя в объект запроса
-    req.user = {
-      id: user.id,
-      telegramId: user.telegram_id,
-      firstName: user.first_name,
-      lastName: user.last_name,
-      username: user.username,
-      role: user.role,
-      pinCode: user.pin_code,
-    };
-
-    // Добавляем флаг, что это фейковая авторизация
+    // Attach user object and a flag for traceability
+    req.user = user;
     req.isFakeAuth = true;
-
-    // Логируем для отладки
-    if (config.env === 'development') {
-      console.log(`[FakeTelegramAuth] User authenticated: ${user.first_name} ${user.last_name} (${user.role})`);
-    }
 
     next();
   } catch (error) {
-    console.error('[FakeTelegramAuth] Error:', error);
-    
-    // В режиме разработки создаем fallback пользователя
-    req.user = {
-      id: 0,
-      telegramId: 'fallback_user',
-      firstName: 'Fallback',
-      lastName: 'User',
-      username: 'fallback',
-      role: 'master',
-      pinCode: '0000',
-    };
-    req.isFakeAuth = true;
-    
-    console.log('[FakeTelegramAuth] Using fallback user due to error');
-    next();
+    next(error);
   }
-};
+}
 
-/**
- * Middleware для проверки ролей пользователя
- * @param {Array} allowedRoles - Массив разрешенных ролей
- */
-const requireRole = (allowedRoles) => {
-  return (req, res, next) => {
-    if (!req.user) {
-      return res.status(401).json({ 
-        error: 'Unauthorized', 
-        message: 'User not authenticated' 
-      });
-    }
-
-    if (!allowedRoles.includes(req.user.role)) {
-      return res.status(403).json({ 
-        error: 'Forbidden', 
-        message: `Role ${req.user.role} is not allowed. Required roles: ${allowedRoles.join(', ')}` 
-      });
-    }
-
-    next();
-  };
-};
-
-/**
- * Middleware для проверки PIN-кода
- * Требует наличия заголовка X-PIN-Code
- */
-const requirePinCode = async (req, res, next) => {
-  try {
-    const pinCode = req.headers['x-pin-code'] || req.query.pinCode;
-    
-    if (!pinCode) {
-      return res.status(400).json({ 
-        error: 'Bad Request', 
-        message: 'PIN code is required' 
-      });
-    }
-
-    // В режиме разработки пропускаем проверку PIN-кода
-    if (config.telegram.useFakeAuth && config.env === 'development') {
-      console.log(`[FakeTelegramAuth] PIN code check skipped for development: ${pinCode}`);
-      return next();
-    }
-
-    // Проверяем PIN-код в базе данных
-    const user = await db('users')
-      .where({ 
-        telegram_id: req.user.telegramId,
-        pin_code: pinCode,
-        is_active: true 
-      })
-      .first();
-
-    if (!user) {
-      return res.status(401).json({ 
-        error: 'Unauthorized', 
-        message: 'Invalid PIN code' 
-      });
-    }
-
-    // Обновляем время последнего входа
-    await db('users')
-      .where({ id: user.id })
-      .update({ last_login_at: db.fn.now() });
-
-    next();
-  } catch (error) {
-    console.error('[requirePinCode] Error:', error);
-    res.status(500).json({ 
-      error: 'Internal Server Error', 
-      message: 'Failed to verify PIN code' 
-    });
-  }
-};
-
-module.exports = {
-  fakeTelegramAuth,
-  requireRole,
-  requirePinCode,
-};
+module.exports = { fakeTelegramAuth };

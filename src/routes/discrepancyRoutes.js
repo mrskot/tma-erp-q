@@ -1,3 +1,4 @@
+// src/routes/discrepancyRoutes.js
 const express = require('express');
 const router = express.Router();
 const { body, param } = require('express-validator');
@@ -45,7 +46,7 @@ const updateStatusValidation = [
     .isIn(['fixed', 'resolution_card', 'scrap', 'political']).withMessage('Недопустимый сценарий'),
 ];
 
-// Маршруты
+// ... (остальной код без изменений, так как он уже использует статические вызовы)
 router.get('/', authenticateJWT, DiscrepancyController.getAllDiscrepancies);
 router.get('/statistics', authenticateJWT, DiscrepancyController.getDiscrepancyStatistics);
 router.get('/:id', authenticateJWT, param('id').isInt(), DiscrepancyController.getDiscrepancyById);

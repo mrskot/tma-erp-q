@@ -1,146 +1,33 @@
 const express = require('express');
-const router = express.Router();
-const { body, param, query } = require('express-validator');
+const { body, param } = require('express-validator');
 const LotController = require('../controllers/lotController');
 const { authenticateJWT } = require('../middleware/auth');
 const rbacMiddleware = require('../middleware/rbacMiddleware');
 
-// Валидация для создания участка
-const createLotValidation = [
-  body('name')
-    .notEmpty().withMessage('Название участка обязательно')
-    .isString().withMessage('Название должно быть строкой')
-    .isLength({ min: 2, max: 255 }).withMessage('Название должно быть от 2 до 255 символов'),
-  body('code')
-    .notEmpty().withMessage('Код участка обязателен')
-    .isString().withMessage('Код должен быть строкой')
-    .matches(/^[A-Z0-9_]+$/).withMessage('Код должен содержать только заглавные буквы, цифры и подчёркивания')
-    .isLength({ min: 2, max: 50 }).withMessage('Код должен быть от 2 до 50 символов'),
-  body('priority')
-    .optional()
-    .isInt({ min: 1, max: 10 }).withMessage('Приоритет должен быть от 1 до 10'),
-  body('distance_to_office')
-    .optional({ nullable: true })
-    .isFloat({ min: 0 }).withMessage('Расстояние должно быть неотрицательным числом'),
-  body('main_master_id')
-    .customSanitizer(value => value || null)
-    .notEmpty().withMessage('Основной мастер обязателен')
-    .isInt({ min: 1 }).withMessage('ID основного мастера должен быть числом'),
-  body('temp_master_id')
-    .customSanitizer(value => value || null)
-    .optional({ nullable: true })
-    .isInt({ min: 1 }).withMessage('ID временного мастера должен быть числом'),
-];
+const router = express.Router();
 
-// Валидация для обновления участка
-const updateLotValidation = [
-  param('id')
-    .isInt().withMessage('ID должен быть числом'),
-  body('name')
-    .optional()
-    .isString().withMessage('Название должно быть строкой')
-    .isLength({ min: 2, max: 255 }).withMessage('Название должно быть от 2 до 255 символов'),
-  body('code')
-    .optional()
-    .isString().withMessage('Код должен быть строкой')
-    .matches(/^[A-Z0-9_]+$/).withMessage('Код должен содержать только заглавные буквы, цифры и подчёркивания')
-    .isLength({ min: 2, max: 50 }).withMessage('Код должен быть от 2 до 50 символов'),
-  body('priority')
-    .optional()
-    .isInt({ min: 1, max: 10 }).withMessage('Приоритет должен быть от 1 до 10'),
-  body('distance_to_office')
-    .optional({ nullable: true })
-    .isFloat({ min: 0 }).withMessage('Расстояние должно быть неотрицательным числом'),
-  body('main_master_id')
-    .customSanitizer(value => value || null)
-    .optional({ nullable: true })
-    .isInt({ min: 1 }).withMessage('ID основного мастера должен быть числом'),
-  body('temp_master_id')
-    .customSanitizer(value => value || null)
-    .optional({ nullable: true })
-    .isInt({ min: 1 }).withMessage('ID временного мастера должен быть числом'),
-  body('is_active')
-    .optional()
-    .isBoolean().withMessage('is_active должен быть булевым значением'),
-];
+router.use(authenticateJWT);
 
-// Валидация параметров запроса
-const queryValidation = [
-  query('limit')
-    .optional()
-    .isInt({ min: 1, max: 1000 }).withMessage('Limit должен быть числом от 1 до 1000'),
-  query('offset')
-    .optional()
-    .isInt({ min: 0 }).withMessage('Offset должен быть неотрицательным числом'),
-  query('with_masters')
-    .optional()
-    .isIn(['true', 'false']).withMessage('with_masters должен быть true или false'),
-  query('status')
-    .optional()
-    .isIn(['active', 'inactive', 'all']).withMessage('Недопустимый статус'),
-];
+// General access
+router.get('/', rbacMiddleware(['admin', 'director', 'master', 'inspector']), LotController.getAllLots);
+router.get('/with-masters', rbacMiddleware(['admin', 'director']), LotController.getLotsWithMasters);
+router.get('/master/:masterId', rbacMiddleware(['admin', 'director']), param('masterId').isInt(), LotController.getLotsByMaster);
+router.get('/:id', rbacMiddleware(['admin', 'director']), param('id').isInt(), LotController.getLotById);
 
-// Маршруты
+// Admin/Director only for modifications
+router.post('/', rbacMiddleware(['admin', 'director']), [
+    body('name').notEmpty().withMessage('Название обязательно'),
+    body('code').notEmpty().withMessage('Код обязателен')
+], LotController.createLot);
 
-// Получить все участки
-router.get('/', authenticateJWT, queryValidation, LotController.getAllLots);
+router.put('/:id', rbacMiddleware(['admin', 'director']), param('id').isInt(), LotController.updateLot);
+router.post('/:id/assign-temp-master', rbacMiddleware(['admin', 'director']), [
+    param('id').isInt(), body('temp_master_id').isInt().withMessage('ID временного мастера обязателен')
+], LotController.assignTempMaster);
+router.post('/:id/remove-temp-master', rbacMiddleware(['admin', 'director']), param('id').isInt(), LotController.removeTempMaster);
 
-// --- НОВЫЙ МАРШРУТ ---
-// GET /api/v1/lots/with-masters - Получение списка участков с мастерами для форм
-router.get(
-    '/with-masters',
-    authenticateJWT, // Сначала проверяем аутентификацию
-    rbacMiddleware(['admin', 'director', 'master']), // Затем права доступа
-    LotController.getLotsWithMasters
-);
-
-// Получить участок по ID
-router.get('/:id', authenticateJWT,
-  param('id').isInt().withMessage('ID должен быть числом'),
-  LotController.getLotById
-);
-
-// Получить участок по коду
-router.get('/code/:code', authenticateJWT,
-  param('code').isString().withMessage('Код должен быть строкой'),
-  LotController.getLotByCode
-);
-
-// Получить участки по мастеру
-router.get('/master/:masterId', authenticateJWT,
-  param('masterId').isInt().withMessage('ID мастера должен быть числом'),
-  LotController.getLotsByMaster
-);
-
-// Создать новый участок (только для admin и director)
-router.post('/', authenticateJWT, createLotValidation, LotController.createLot);
-
-// Обновить участок (только для admin и director)
-router.put('/:id', authenticateJWT, updateLotValidation, LotController.updateLot);
-
-// Удалить (деактивировать) участок (только для admin)
-router.delete('/:id', authenticateJWT,
-  param('id').isInt().withMessage('ID должен быть числом'),
-  LotController.deleteLot
-);
-
-// Восстановить участок (только для admin)
-router.post('/:id/restore', authenticateJWT,
-  param('id').isInt().withMessage('ID должен быть числом'),
-  LotController.reactivateLot
-);
-
-// Назначить временного мастера (только для admin и director)
-router.post('/:id/temp-master', authenticateJWT,
-  param('id').isInt().withMessage('ID должен быть числом'),
-  body('temp_master_id').isInt().withMessage('ID временного мастера должен быть числом'),
-  LotController.assignTempMaster
-);
-
-// Удалить временного мастера (только для admin и director)
-router.delete('/:id/temp-master', authenticateJWT,
-  param('id').isInt().withMessage('ID должен быть числом'),
-  LotController.removeTempMaster
-);
+// Admin only for destructive actions
+router.delete('/:id', rbacMiddleware(['admin']), param('id').isInt(), LotController.deleteLot);
+router.post('/:id/restore', rbacMiddleware(['admin']), param('id').isInt(), LotController.reactivateLot);
 
 module.exports = router;

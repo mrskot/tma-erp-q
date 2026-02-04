@@ -111,12 +111,11 @@ class UserService {
   }
 
   static async reactivateUser(id, performer) {
-    // ВТОРОЙ аргумент true говорит BaseModel искать в том числе и неактивных
+    // FIX: Add 'true' to find inactive users as well. This prevents 404 errors on restore.
     const user = await User.findById(id, true);
     if (!user) throw new AppError('Пользователь не найден', 404);
-    
+    // The model's method is actually named 'reactivate' in User.js which is an alias for restore()
     await User.reactivate(id);
-
     await activityLogService.log({
       userId: performer.id,
       userRole: performer.role,
@@ -126,7 +125,6 @@ class UserService {
       newData: user,
       description: `Восстановление пользователя ${user.username}`
     });
-
     return { success: true, message: 'Пользователь восстановлен' };
   }
 

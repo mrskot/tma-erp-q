@@ -12,8 +12,9 @@ async function loadDataAndUpdateView() {
         if (savedFilters.status !== 'all') filters.status = savedFilters.status;
         if (savedFilters.severity !== 'all') filters.severity = savedFilters.severity;
 
+        // FIX: The response from API contains an object with a 'discrepancies' array.
         const response = await api.getDiscrepancies(filters);
-        render(response.data || []);
+        render(response.discrepancies || []);
     } catch (error) {
         document.getElementById('page-content').innerHTML = `<p class="error-message">Ошибка загрузки: ${error.message}</p>`;
     }

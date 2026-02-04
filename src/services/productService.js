@@ -71,10 +71,12 @@ class ProductService {
   }
 
   static async restoreProduct(id) {
+    // FIX: Add 'true' to findById to include inactive products in the search.
     const product = await Product.findById(id, true);
     if (!product) throw new AppError('Изделие не найдено', 404);
-    await Product.reactivate(id);
-    return { success: true, message: 'Изделие успешно восстановлено' };
+    const result = await Product.reactivate(id);
+    if (!result) throw new AppError('Не удалось восстановть изделие', 500);
+    return { success: true, message: 'Изделие восстановлено' };
   }
 }
 

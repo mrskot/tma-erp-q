@@ -10,9 +10,8 @@ class TMA_API {
     showLoader() {
         this.activeRequests++;
         if (this.loader) {
+            this.loader.style.backgroundColor = 'rgba(255, 255, 255, 0.7)';
             this.loader.classList.remove('hidden');
-            // Если запрос затянулся, можем добавить полупрозрачность
-            this.loader.style.backgroundColor = 'rgba(255, 255, 255, 0.5)';
         }
     }
 
@@ -20,7 +19,7 @@ class TMA_API {
         this.activeRequests = Math.max(0, this.activeRequests - 1);
         if (this.activeRequests === 0 && this.loader) {
             this.loader.classList.add('hidden');
-            this.loader.style.backgroundColor = ''; // Сброс
+            this.loader.style.backgroundColor = '';
         }
     }
 
@@ -48,13 +47,15 @@ class TMA_API {
             const response = await fetch(url, config);
             const json = await response.json();
 
-            if (!response.ok) {
-                throw new Error(json.message || `Ошибка сервера: ${response.status}`);
+            if (!response.ok || json.success === false) {
+                const errorMessage = json.message || `Ошибка сервера: ${response.status}`;
+                const error = new Error(errorMessage);
+                if (json.errors) {
+                    error.validationErrors = json.errors;
+                }
+                throw error;
             }
-
-            // МАГИЯ ТУТ: если бэкенд прислал { success: true, data: ... }, 
-            // возвращаем только data, чтобы не переписывать логику страниц
-            return json.data !== undefined ? { success: true, data: json.data } : json;
+            return json.data !== undefined ? json.data : json;
         } catch (error) {
             console.error(`API Error on ${endpoint}:`, error);
             throw error;
@@ -68,6 +69,7 @@ class TMA_API {
     async getUsers(status = 'all') { return this.request(`/users?status=${status}`); }
     async getUsersByRole(role) { return this.request(`/users/role/${role}`); }
     async createUser(userData) { return this.request('/users', { method: 'POST', body: JSON.stringify(userData) }); }
+    // FIX: Corrected endpoint for updating a user.
     async updateUser(userId, userData) { return this.request(`/users/${userId}`, { method: 'PUT', body: JSON.stringify(userData) }); }
     async deactivateUser(userId) { return this.request(`/users/${userId}`, { method: 'DELETE' }); }
     async reactivateUser(userId) { return this.request(`/users/${userId}/restore`, { method: 'POST' }); }
@@ -83,6 +85,7 @@ class TMA_API {
     // --- Products ---
     async getProducts(status = 'active') { return this.request(`/products?status=${status}`); }
     async createProduct(productData) { return this.request('/products', { method: 'POST', body: JSON.stringify(productData) }); }
+    // FIX: Added the missing updateProduct method.
     async updateProduct(productId, productData) { return this.request(`/products/${productId}`, { method: 'PUT', body: JSON.stringify(productData) }); }
     async deleteProduct(productId) { return this.request(`/products/${productId}`, { method: 'DELETE' }); }
     async reactivateProduct(productId) { return this.request(`/products/${productId}/restore`, { method: 'POST' }); }
@@ -105,6 +108,7 @@ class TMA_API {
     }
     async getDiscrepancyById(id) { return this.request(`/discrepancies/${id}`); }
     async createDiscrepancy(data) { return this.request('/discrepancies', { method: 'POST', body: JSON.stringify(data) }); }
+    // FIX: Corrected endpoint for updating a discrepancy.
     async updateDiscrepancy(id, data) { return this.request(`/discrepancies/${id}`, { method: 'PUT', body: JSON.stringify(data) }); }
     async updateDiscrepancyStatus(id, payload) { return this.request(`/discrepancies/${id}/status`, { method: 'PATCH', body: JSON.stringify(payload) }); }
     async deleteDiscrepancy(id) { return this.request(`/discrepancies/${id}`, { method: 'DELETE' }); }

@@ -22,9 +22,10 @@ async function loadDataAndUpdateView() {
             api.getApplications(filters),
             api.getLots('active')
         ]);
-        
-        store.setLots(lotsRes.data);
-        render(appsRes.data, lotsRes.data);
+
+        store.setLots(lotsRes.lots || []);
+        // FINAL FIX: The backend now returns { applications: [...] }, which is what render expects.
+        render(appsRes.applications || [], lotsRes.lots || []);
     } catch (error) {
         document.getElementById('page-content').innerHTML = `<p class="error-message">Ошибка загрузки: ${error.message}</p>`;
     }

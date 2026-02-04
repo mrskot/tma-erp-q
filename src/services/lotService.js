@@ -57,8 +57,11 @@ class LotService {
   }
 
   static async reactivateLot(id) {
+    // FIX: Add 'true' to findById to include inactive lots in the search.
+    const lot = await Lot.findById(id, true);
+    if (!lot) throw new AppError('Участок не найден', 404);
     const result = await Lot.reactivate(id);
-    if (!result) throw new AppError('Участок не найден', 404);
+    if (!result) throw new AppError('Не удалось восстановить участок', 500);
     return { success: true, message: 'Участок восстановлен' };
   }
 

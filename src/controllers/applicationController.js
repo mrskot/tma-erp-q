@@ -1,11 +1,7 @@
 const ApplicationService = require('../services/applicationService');
 const { validationResult } = require('express-validator');
 const { AppError } = require('../utils/errorHandler');
-
-// Обертка для асинхронных контроллеров для централизованной обработки ошибок
-const asyncHandler = fn => (req, res, next) => {
-    Promise.resolve(fn(req, res, next)).catch(next);
-};
+const asyncHandler = require('../utils/asyncHandler'); // FIX: Use the central asyncHandler
 
 class ApplicationController {
 
@@ -13,14 +9,16 @@ class ApplicationController {
         const { limit = 100, offset = 0, status, master_id, inspector_id, lot_id } = req.query;
         const filters = { status, master_id, inspector_id, lot_id };
         
-        // Передаем req.user в сервис для ролевой фильтрации
+        // The service now returns an object { applications, pagination }
         const result = await ApplicationService.getAllApplications(filters, req.user, parseInt(limit), parseInt(offset));
-        res.json(result);
+        
+        // FIX: Standardize the response structure to match other controllers.
+        res.json({ success: true, data: result });
     });
 
     static getApplicationById = asyncHandler(async (req, res) => {
         const result = await ApplicationService.getApplicationById(parseInt(req.params.id));
-        res.json(result);
+        res.json({ success: true, data: result });
     });
 
     static createBatchApplications = asyncHandler(async (req, res) => {
@@ -29,12 +27,12 @@ class ApplicationController {
             throw new AppError('Ошибка валидации', 422, errors.array());
         }
 
-        if (req.user.role === 'master' && req.body.master_id !== req.user.id) {
+        if (req.user.role === 'master' && req.body.master_id != req.user.id) {
              throw new AppError('Мастер может создавать заявки только от своего имени.', 403);
         }
 
-        const result = await ApplicationService.createBatchApplications(req.body);
-        res.status(201).json(result);
+        const result = await ApplicationService.createBatchApplications(req.body, req.user);
+        res.status(201).json({ success: true, data: result });
     });
 
     static updateApplication = asyncHandler(async (req, res) => {
@@ -44,7 +42,7 @@ class ApplicationController {
         }
 
         const result = await ApplicationService.updateApplication(parseInt(req.params.id), req.body, req.user);
-        res.json(result);
+        res.json({ success: true, data: result });
     });
 
     static updateApplicationStatus = asyncHandler(async (req, res) => {
@@ -55,17 +53,17 @@ class ApplicationController {
             rejectionReason,
             req.user
         );
-        res.json(result);
+        res.json({ success: true, data: result });
     });
 
     static deleteApplication = asyncHandler(async (req, res) => {
         const result = await ApplicationService.deleteApplication(parseInt(req.params.id), req.user);
-        res.json(result);
+        res.json(result); // This service already returns { success, message }
     });
 
     static getApplicationStatistics = asyncHandler(async (req, res) => {
         const result = await ApplicationService.getApplicationStatistics();
-        res.json(result);
+        res.json({ success: true, data: result });
     });
 }
 

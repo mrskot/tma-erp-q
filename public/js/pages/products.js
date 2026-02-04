@@ -7,11 +7,13 @@ let state = { filter: 'active' };
 
 async function loadDataAndUpdateView() {
     try {
-        // Запрашиваем ВСЕГДА ВСЕ ДАННЫЕ, чтобы избежать рассинхрона
-        const [productsRes, lotsRes] = await Promise.all([api.getProducts('all'), api.getLots('active')]);
-        store.setProducts(productsRes.data);
-        store.setLots(lotsRes.data);
-        render(); // render() сам отфильтрует данные по state.filter
+        const [productsRes, lotsRes] = await Promise.all([
+            api.getProducts('all'),
+            api.getLots('active')
+        ]);
+        store.setProducts(productsRes.products || []);
+        store.setLots(lotsRes.lots || []);
+        render();
     } catch (error) {
         document.getElementById('page-content').innerHTML = `<p class="error-message">Ошибка загрузки: ${error.message}</p>`;
     }
@@ -65,47 +67,47 @@ function render() {
 function handlePageClick(event) {
     const button = event.target.closest('button[data-action]');
     if (!button) return;
-
     const action = button.dataset.action;
+    // FIX: Updated selector from 'tr' to '.mobile-card'
     const productId = button.closest('.mobile-card')?.dataset.productId || button.dataset.productId;
-
+    // Helper for create/update actions
+    const onSave = async (apiCall) => {
+        try {
+            await apiCall();
+            productModal.hide();
+            await loadDataAndUpdateView();
+        } catch (error) {
+            alert(`Ошибка сохранения: ${error.message}`);
+        }
+    };
+    // This function encapsulates the business logic for handling checklist data
+    const handleSave = (data) => {
+        // Business logic: transform checklist from textarea string to array
+        if (data.checklist) {
+            data.checklist = data.checklist.split('\n').map(item => item.trim()).filter(item => item);
+        }
+        if (action === 'create') {
+            onSave(() => api.createProduct(data));
+        } else if (action === 'edit') {
+            onSave(() => api.updateProduct(productId, data));
+        }
+    };
     switch (action) {
         case 'create':
-            productModal.show({ 
-                mode: 'create', 
-                lots: store.state.lots, 
-                onSave: async (data) => {
-                    try {
-                        // Обработка чек-листа перед отправкой
-                        if (data.checklist) {
-                            data.checklist = data.checklist.split('\n').map(item => item.trim()).filter(item => item);
-                        }
-                        await api.createProduct(data); 
-                        productModal.hide(); 
-                        await loadDataAndUpdateView();
-                    } catch (error) {
-                        alert(`Ошибка создания: ${error.message}`);
-                    }
-                }
+            productModal.show({
+                mode: 'create',
+                lots: store.state.lots,
+                inspectors: store.state.inspectors, // Assuming inspectors are loaded in store
+                onSave: handleSave
             });
             break;
         case 'edit':
-            productModal.show({ 
-                mode: 'edit', 
-                lots: store.state.lots, 
-                productData: store.getProductById(productId), 
-                onSave: async (data) => {
-                    try {
-                         if (data.checklist) {
-                            data.checklist = data.checklist.split('\n').map(item => item.trim()).filter(item => item);
-                        }
-                        await api.updateProduct(productId, data); 
-                        productModal.hide(); 
-                        await loadDataAndUpdateView();
-                    } catch (error) {
-                        alert(`Ошибка обновления: ${error.message}`);
-                    }
-                }
+            productModal.show({
+                mode: 'edit',
+                lots: store.state.lots,
+                inspectors: store.state.inspectors,
+                productData: store.getProductById(productId),
+                onSave: handleSave
             });
             break;
         case 'delete':

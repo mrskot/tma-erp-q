@@ -1,145 +1,85 @@
-/**
- * Modal for viewing application details and taking actions
- * Refactored to separate View (Templates) from Logic
- */
-import api from '../api.js'; 
-import authManager from '../auth.js'; 
+import api from '../api.js';
+import authManager from '../auth.js';
 import { UI } from './UIComponents.js';
 
-/**
- * Templates for Application Modal UI elements
- */
-const ApplicationTemplates = {
-    statusMap: {
-        new: 'Новая',
-        assigned: 'Назначена',
-        in_progress: 'В работе',
-        accepted: 'Принято',
-        rejected: 'Отклонено'
-    },
-
-    statusBadge: (status) => {
-        const text = ApplicationTemplates.statusMap[status] || status.toUpperCase();
-        return `<span class="status-badge bg-status-${status}">${text}</span>`;
-    },
-
-    detailRow: (label, value) => `
-        <div class="detail-row" style="display: flex; margin-bottom: 4px; font-size: 13px;">
-            <span style="flex: 0 0 100px; color: #666; font-style: italic;">${label}:</span>
-            <span style="font-weight: 800; color: #111;">${value || '—'}</span>
-        </div>
-    `,
-
-    mainDetails: (app) => {
-        const T = ApplicationTemplates;
-        return `
-            <div style="margin-bottom: 12px; border-bottom: 1px solid #eee; padding-bottom: 8px;">
-                ${T.detailRow('Номер', app.application_number)}
-            </div>
-            ${T.detailRow('Заказ', app.production_order_number)}
-            ${T.detailRow('Изделие', app.product_name)}
-            ${T.detailRow('Чертеж', app.drawing_number)}
-            ${T.detailRow('Сер. номер', app.serial_number)}
-            ${T.detailRow('Мастер', app.master_name)}
-            ${T.detailRow('Участок', app.lot_name)}
-            ${app.btx_appl_id ? T.detailRow('Bitrix ID', app.btx_appl_id) : ''}
-            <div style="display: flex; align-items: center; margin-top: 8px;">
-                <span style="flex: 0 0 100px; color: #666; font-style: italic;">Статус:</span>
-                ${T.statusBadge(app.status)}
-            </div>
-        `;
-    },
-
-    checklistItem: (itemText, index, isInspector, isLocked) => {
-        if (isInspector) {
-            return `
-                <div class="checklist-item" style="display: flex; gap: 10px; margin-bottom: 8px; border-bottom: 1px dashed #eee; padding: 4px 0;">
-                    <input type="checkbox" id="check-${index}" style="margin-top: 3px;" ${isLocked ? 'disabled checked' : ''}>
-                    <label for="check-${index}" style="font-size: 13px; line-height: 1.4; color: #333;">${itemText}</label>
-                </div>
-            `;
-        }
-        return `
-            <div class="checklist-item" style="display: flex; gap: 10px; margin-bottom: 8px; border-bottom: 1px dashed #eee; padding: 4px 0;">
-                <span style="color: #667eea; margin-top: 2px;">🔹</span>
-                <span style="font-size: 13px; line-height: 1.4; color: #333;">${itemText}</span>
-            </div>
-        `;
-    }
+const TPL = {
+    statusMap: { new: 'Новая', assigned: 'Назначена', in_progress: 'В работе', accepted: 'Принято', rejected: 'Отклонено' },
+    statusBadge: (status) => `<span class="status-badge bg-status-${status}">${TPL.statusMap[status] || status}</span>`,
+    detailRow: (label, value) => `<div class="detail-row"><span class="detail-label">${label}:</span><span class="detail-value">${value || '—'}</span></div>`,
+    mainDetails: (app) => `
+        <div class="details-grid">
+            ${TPL.detailRow('Номер', app.application_number)}
+            ${TPL.detailRow('Заказ', app.production_order_number)}
+            ${TPL.detailRow('Изделие', app.product_name)}
+            ${TPL.detailRow('Мастер', app.master_name)}
+            ${app.inspector_name ? TPL.detailRow('Контролёр', app.inspector_name) : ''}
+            <div class="detail-row status-row"><span class="detail-label">Статус:</span>${TPL.statusBadge(app.status)}</div>
+        </div>`,
+    checklistItem: (itemText, index, isInspector, isLocked) => `<div class="checklist-item"><input type="checkbox" id="check-${index}" ${isInspector && !isLocked ? '' : 'disabled'} ${isLocked ? 'checked' : ''}><label for="check-${index}">${itemText}</label></div>`
 };
 
 export class ApplicationDetailsModal {
     constructor() {
         this.modal = document.getElementById('application-details-modal');
         if (!this.modal) return;
-        
         this.closeButton = this.modal.querySelector('.close');
-        this.actionsContainer = document.getElementById('view-app-actions');
+        this.actionsContainer = this.modal.querySelector('#view-app-actions');
         this.detailsSection = this.modal.querySelector('.details-section');
-        
-        this.mkiSection = document.getElementById('view-app-mki-section');
-        this.mkiImg = document.getElementById('view-app-mki-img');
-        this.discList = document.getElementById('view-app-discrepancies-list');
-        
-        this.checklistSection = document.getElementById('view-app-checklist-section');
-        this.checklistItems = document.getElementById('view-app-checklist-items');
-        
+        this.mkiImg = this.modal.querySelector('#view-app-mki-img');
+        this.discList = this.modal.querySelector('#view-app-discrepancies-list');
+        this.checklistItems = this.modal.querySelector('#view-app-checklist-items');
+        this.checklistSection = this.modal.querySelector('#view-app-checklist-section');
         this.currentApp = null;
+        this.onCloseCallback = null;
         this.attachEventListeners();
     }
 
     attachEventListeners() {
-        // Привязываем события один раз
         this.closeButton.onclick = () => this.hide();
-        window.addEventListener('click', (event) => {
-            if (event.target === this.modal) this.hide();
-        });
+        window.addEventListener('click', (event) => { if (event.target === this.modal) this.hide(); });
     }
 
-    async show(applicationId) {
+    async show(applicationId, onClose) {
+        this.onCloseCallback = onClose;
+        this.modal.style.display = 'block';
+        this.detailsSection.innerHTML = '<p>Загрузка деталей...</p>';
+        
         try {
-            const response = await api.getApplicationById(applicationId);
-            if (!response.success) throw new Error(response.message);
+            const app = await api.getApplicationById(applicationId);
+            if (!app) throw new Error("Заявка не найдена после запроса к API.");
             
-            const app = response.data;
             this.currentApp = app;
-            
-            // Рендерим детали
-            this.detailsSection.innerHTML = ApplicationTemplates.mainDetails(app);
-            
-            // Рендерим чек-лист
+            this.detailsSection.innerHTML = TPL.mainDetails(app);
             this.renderChecklist(app);
 
-            // Фото МКИ
+            const mkiSection = this.mkiImg.parentElement;
             if (app.mki_photo_url) {
                 this.mkiImg.src = app.mki_photo_url;
-                this.mkiSection.style.display = 'block';
+                mkiSection.style.display = 'block';
             } else {
-                this.mkiSection.style.display = 'none';
+                mkiSection.style.display = 'none';
             }
             
             await this.refreshDiscrepancies(applicationId);
             this.renderActions(app);
             
-            this.modal.style.display = 'block';
         } catch (e) {
-            console.error('Application modal error:', e);
-            alert(`Ошибка при загрузке: ${e.message}`);
+            console.error('Application modal show() error:', e.stack || e);
+            this.detailsSection.innerHTML = `<p class="error-message">Ошибка при загрузке заявки: ${e.message}</p>`;
         }
     }
 
     async refreshDiscrepancies(applicationId) {
-        this.discList.innerHTML = '<p class="subtitle">Загрузка несоответствий...</p>';
+        this.discList.innerHTML = '<p>Загрузка несоответствий...</p>';
         try {
             const response = await api.getDiscrepancies({ application_id: applicationId });
-            this.discList.innerHTML = '';
+            const discrepancies = response.discrepancies || [];
             
-            if (response.success && response.data.length > 0) {
-                response.data.forEach(disc => {
+            this.discList.innerHTML = '';
+            if (discrepancies.length > 0) {
+                discrepancies.forEach(disc => {
                     const card = UI.createDiscrepancyCard(disc, (d) => {
-                        window.app.openEditDiscrepancyModal(d.id, async () => {
-                            await this.refreshDiscrepancies(applicationId);
-                        });
+                        window.app.openEditDiscrepancyModal(d.id, () => this.refreshDiscrepancies(applicationId));
                     });
                     this.discList.appendChild(card);
                 });
@@ -147,91 +87,58 @@ export class ApplicationDetailsModal {
                 this.discList.innerHTML = '<p class="subtitle">Несоответствий не обнаружено.</p>';
             }
         } catch (e) {
-            this.discList.innerHTML = `<p class="error-message">Ошибка: ${e.message}</p>`;
+            this.discList.innerHTML = `<p class="error-message">Ошибка загрузки дефектов: ${e.message}</p>`;
         }
     }
 
     renderChecklist(app) {
-        this.checklistItems.innerHTML = '';
-        this.checklistSection.style.display = 'none';
-
         const user = authManager.getUser();
+        if (!user) return; 
+
+        this.checklistItems.innerHTML = '';
         const isInspector = user.role === 'inspector' || user.role === 'admin';
         const isLocked = ['accepted', 'rejected'].includes(app.status);
 
-        // Безопасный парсинг
         let checklist = [];
-        const raw = app.product_checklist || app.checklist;
+        try {
+            const rawChecklist = app.product_checklist || '[]';
+            checklist = (typeof rawChecklist === 'string') ? JSON.parse(rawChecklist) : rawChecklist;
+        } catch (e) { console.error("Checklist parse error:", e); }
         
-        if (raw) {
-            if (Array.isArray(raw)) {
-                checklist = raw;
-            } else if (typeof raw === 'string') {
-                try {
-                    checklist = JSON.parse(raw);
-                } catch (e) {
-                    checklist = [raw]; // Если это просто строка, а не JSON
-                }
-            }
+        if (!Array.isArray(checklist) || checklist.length === 0) {
+            this.checklistSection.style.display = 'none';
+            return;
         }
-
-        if (!Array.isArray(checklist) || checklist.length === 0) return;
 
         this.checklistSection.style.display = 'block';
-        
-        const titleEl = this.checklistSection.querySelector('.subtitle');
-        if (titleEl) {
-            titleEl.textContent = isInspector ? '📋 Чек-лист контроля:' : '📋 Список необходимых проверок:';
-        }
-
-        const itemsHtml = checklist.map((item, idx) => {
-            const text = (typeof item === 'object' && item !== null) 
-                ? (item.task || item.text || JSON.stringify(item)) 
-                : item;
-            return ApplicationTemplates.checklistItem(text, idx, isInspector, isLocked);
-        }).join('');
-
+        const itemsHtml = checklist.map((item, idx) => TPL.checklistItem(item.task || item, idx, isInspector, isLocked)).join('');
         this.checklistItems.innerHTML = itemsHtml;
     }
 
     renderActions(app) {
-        this.actionsContainer.innerHTML = '';
         const user = authManager.getUser();
+        if (!user) {
+            this.actionsContainer.innerHTML = '';
+            return;
+        }
+
+        this.actionsContainer.innerHTML = '';
         const isInspector = user.role === 'inspector' || user.role === 'admin';
+        const isMaster = user.role === 'master' || user.role === 'admin';
         
         const buttons = [];
 
-        if (isInspector) {
-            if (app.status === 'new') {
-                buttons.push(this.createActionButton('🔍 Взять на проверку', 'button-primary', () => {
-                    this.handleStatusChange('in_progress', user.id);
-                }));
-            }
+        if (isInspector && app.status === 'new') {
+            buttons.push(this.createActionButton('🔍 Взять на проверку', 'button-primary', () => this.handleStatusChange('in_progress')));
+        }
 
-            if (['assigned', 'in_progress'].includes(app.status)) {
-                buttons.push(this.createActionButton('✅ Принять (Годен)', 'button-success', () => {
-                    const checkboxes = this.checklistItems.querySelectorAll('input[type="checkbox"]');
-                    const allChecked = Array.from(checkboxes).every(cb => cb.checked);
-                    
-                    if (checkboxes.length > 0 && !allChecked) {
-                        alert('Для приёмки необходимо отметить все пункты чек-листа!');
-                        return;
-                    }
-                    this.handleStatusChange('accepted');
-                }));
-
-                buttons.push(this.createActionButton('⚠️ Выявить несоответствие', 'button-danger', () => {
-                    window.app.openCreateDiscrepancyModal(app.id, async () => {
-                        await this.refreshDiscrepancies(app.id);
-                    });
-                }));
-            }
+        if (isInspector && ['assigned', 'in_progress'].includes(app.status)) {
+            buttons.push(this.createActionButton('✅ Принять (Годен)', 'button-success', () => this.handleAccept()));
+            buttons.push(this.createActionButton('⚠️ Выявить несоответствие', 'button-danger', () => this.handleCreateDiscrepancy()));
         }
         
-        if (user.role === 'master' && app.status === 'new') {
-            buttons.push(this.createActionButton('🗑️ Отозвать заявку', 'button-secondary', () => {
-                this.handleDelete(app.id);
-            }));
+        if (isMaster && app.master_id === user.id && app.status === 'new') {
+            buttons.push(this.createActionButton('🗑️ Отозвать заявку', 'button-secondary', () => this.handleDelete()));
         }
 
         buttons.forEach(btn => this.actionsContainer.appendChild(btn));
@@ -241,48 +148,47 @@ export class ApplicationDetailsModal {
         const btn = document.createElement('button');
         btn.className = `button ${className}`;
         btn.textContent = label;
-        btn.style.width = '100%';
-        btn.style.marginBottom = '8px';
         btn.onclick = onClick;
         return btn;
     }
 
-    async handleStatusChange(status, inspectorId = null) {
+    handleAccept() {
+        const allChecked = Array.from(this.checklistItems.querySelectorAll('input[type="checkbox"]:not(:disabled)'))
+                                .every(cb => cb.checked);
+        if (!allChecked && this.checklistItems.children.length > 0) {
+            return alert('Для приёмки необходимо отметить все пункты чек-листа!');
+        }
+        this.handleStatusChange('accepted');
+    }
+
+    handleCreateDiscrepancy() {
+        this.hide(false);
+        window.app.openCreateDiscrepancyModal(this.currentApp.id, this.onCloseCallback);
+    }
+
+    async handleStatusChange(status) {
         try {
-            if (inspectorId) {
-                await api.updateApplication(this.currentApp.id, { 
-                    inspector_id: inspectorId,
-                    status: status 
-                });
-            } else {
-                await api.updateApplicationStatus(this.currentApp.id, status);
-            }
-            
+            await api.updateApplicationStatus(this.currentApp.id, status);
             this.hide();
-            if (window.app && window.app.showPage) {
-                window.app.showPage('dashboard');
-            }
         } catch (e) {
-            alert(`Ошибка обновления: ${e.message}`);
+            alert(`Ошибка обновления статуса: ${e.message}`);
         }
     }
 
-    async handleDelete(id) {
+    async handleDelete() {
         if (!confirm('Вы уверены, что хотите отозвать эту заявку?')) return;
         try {
-            await api.deleteApplication(id);
+            await api.deleteApplication(this.currentApp.id);
             this.hide();
-            if (window.app && window.app.showPage) {
-                window.app.showPage('dashboard');
-            }
         } catch (e) {
             alert(`Ошибка при удалении: ${e.message}`);
         }
     }
 
-    hide() {
+    hide(triggerCallback = true) {
         this.modal.style.display = 'none';
+        if (triggerCallback && this.onCloseCallback) {
+            this.onCloseCallback();
+        }
     }
 }
-
-window.ApplicationDetailsModal = ApplicationDetailsModal;

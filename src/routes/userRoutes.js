@@ -1,12 +1,13 @@
 const express = require('express');
 const { body } = require('express-validator');
+// FIX: Requiring the class
 const UserController = require('../controllers/userController');
 const { authenticateJWT } = require('../middleware/auth');
 const rbacMiddleware = require('../middleware/rbacMiddleware');
 
 const router = express.Router();
 
-// Публичный маршрут для входа
+// Public route for login
 router.post(
   '/auth/login',
   [
@@ -16,18 +17,20 @@ router.post(
   UserController.authenticate
 );
 
-// Защищенные маршруты
+// Protected routes
 router.use(authenticateJWT);
 
 router.get('/profile', UserController.getProfile);
 
-// Админские маршруты
+// Admin & Manager routes
 router.get('/', rbacMiddleware(['admin', 'director']), UserController.getAllUsers);
+router.get('/role/:role', rbacMiddleware(['admin', 'director']), UserController.getUsersByRole);
+
+// Admin-only routes
 router.post('/', rbacMiddleware(['admin']), UserController.createUser);
 router.put('/:id', rbacMiddleware(['admin']), UserController.updateUser);
 router.delete('/:id', rbacMiddleware(['admin']), UserController.deleteUser);
 router.post('/:id/restore', rbacMiddleware(['admin']), UserController.reactivateUser);
-router.get('/role/:role', UserController.getUsersByRole);
 router.post('/reset-pin', rbacMiddleware(['admin']), UserController.resetPinCode);
 
 module.exports = router;
