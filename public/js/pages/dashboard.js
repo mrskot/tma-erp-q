@@ -68,7 +68,7 @@ async function renderRoleDashboard(container, user, modals) {
             ]);
             
             renderGrid(section1Grid, discRes.discrepancies || [], 'discrepancy', modals);
-            renderGrid(section2Grid, appRes.data || [], 'application', modals);
+            renderGrid(section2Grid, appRes.applications || [], 'application', modals);
 
         } else if (user.role === 'inspector') {
             section1Title.textContent = '🔍 Заявки на проверку';
@@ -79,7 +79,7 @@ async function renderRoleDashboard(container, user, modals) {
                 api.getDiscrepancies({ status: 'resolved' })
             ]);
 
-            renderGrid(section1Grid, appRes.data || [], 'application', modals);
+            renderGrid(section1Grid, appRes.applications || [], 'application', modals);
             renderGrid(section2Grid, discRes.discrepancies || [], 'discrepancy', modals);
         }
     } catch (error) {
@@ -91,26 +91,28 @@ function renderGrid(grid, items, type, modals) {
     grid.innerHTML = '';
     if (!items || items.length === 0) {
         grid.innerHTML = `<p class="empty-state" style="padding: 20px; text-align: center; color: #888; font-style: italic;">
-            ${type === 'application' ? 'Заявок нет 🙌' : 'Дефектов нет 🙌'}
+            ${type === 'application' ? 'Задач по заявкам нет 🙌' : 'Активных дефектов нет 🙌'}
         </p>`;
         return;
     }
 
     items.forEach(item => {
         let card;
+        const refreshCallback = () => {
+            const currentContainer = document.getElementById('page-content');
+            init(currentContainer, modals);
+        };
+
         if (type === 'application') {
             card = UI.createApplicationCard(item, (a) => {
                 if (modals && modals.applicationDetails) {
-                    modals.applicationDetails.show(a.id);
+                    modals.applicationDetails.show(a.id, refreshCallback);
                 }
             });
         } else {
             card = UI.createDiscrepancyCard(item, (d) => {
                 if (window.app && window.app.openEditDiscrepancyModal) {
-                    window.app.openEditDiscrepancyModal(d.id, () => {
-                        const currentContainer = document.getElementById('page-content');
-                        init(currentContainer, modals);
-                    });
+                    window.app.openEditDiscrepancyModal(d.id, refreshCallback);
                 }
             });
         }
@@ -121,7 +123,6 @@ function renderGrid(grid, items, type, modals) {
 export async function init(container, modals) {
     container.innerHTML = `<h2>Загрузка...</h2>`;
     const user = store.state.currentUser;
-
     if (!user) return;
 
     if (user.role === 'admin' || user.role === 'director') {
@@ -132,8 +133,8 @@ export async function init(container, modals) {
             ]);
             
             container.innerHTML = renderAdminDashboard({
-                applications: appStats,
-                discrepancies: discStats,
+                applications: appStats.data,
+                discrepancies: discStats.data,
             });
             const refreshBtn = document.getElementById('refresh-dashboard');
             if (refreshBtn) refreshBtn.onclick = () => init(container, modals);

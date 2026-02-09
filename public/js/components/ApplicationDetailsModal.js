@@ -128,11 +128,11 @@ export class ApplicationDetailsModal {
         
         const buttons = [];
 
-        if (isInspector && app.status === 'new') {
+        if (isInspector && ['new', 'assigned'].includes(app.status)) {
             buttons.push(this.createActionButton('🔍 Взять на проверку', 'button-primary', () => this.handleStatusChange('in_progress')));
         }
 
-        if (isInspector && ['assigned', 'in_progress'].includes(app.status)) {
+        if (isInspector && app.status === 'in_progress') {
             buttons.push(this.createActionButton('✅ Принять (Годен)', 'button-success', () => this.handleAccept()));
             buttons.push(this.createActionButton('⚠️ Выявить несоответствие', 'button-danger', () => this.handleCreateDiscrepancy()));
         }
@@ -153,17 +153,24 @@ export class ApplicationDetailsModal {
     }
 
     handleAccept() {
-        const allChecked = Array.from(this.checklistItems.querySelectorAll('input[type="checkbox"]:not(:disabled)'))
-                                .every(cb => cb.checked);
-        if (!allChecked && this.checklistItems.children.length > 0) {
-            return alert('Для приёмки необходимо отметить все пункты чек-листа!');
+        const checkboxes = this.checklistItems.querySelectorAll('input[type="checkbox"]:not(:disabled)');
+        if (checkboxes.length > 0) {
+            const allChecked = Array.from(checkboxes).every(cb => cb.checked);
+            if (!allChecked) {
+                alert('Для приёмки необходимо отметить все пункты чек-листа!');
+                return;
+            }
         }
         this.handleStatusChange('accepted');
     }
-
+    
     handleCreateDiscrepancy() {
-        this.hide(false);
-        window.app.openCreateDiscrepancyModal(this.currentApp.id, this.onCloseCallback);
+        this.hide(false); 
+        if (window.app && window.app.openCreateDiscrepancyModal) {
+            window.app.openCreateDiscrepancyModal(this.currentApp.id, this.onCloseCallback);
+        } else {
+            alert('Ошибка: не удалось открыть окно создания несоответствия.');
+        }
     }
 
     async handleStatusChange(status) {
@@ -176,12 +183,12 @@ export class ApplicationDetailsModal {
     }
 
     async handleDelete() {
-        if (!confirm('Вы уверены, что хотите отозвать эту заявку?')) return;
+        if (!confirm('Вы уверены, что хотите отозвать эту заявку? Это действие нельзя отменить.')) return;
         try {
             await api.deleteApplication(this.currentApp.id);
             this.hide();
         } catch (e) {
-            alert(`Ошибка при удалении: ${e.message}`);
+            alert(`Ошибка при отзыве заявки: ${e.message}`);
         }
     }
 

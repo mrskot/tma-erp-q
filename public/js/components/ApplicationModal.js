@@ -11,7 +11,6 @@ export class ApplicationModal extends BaseModal {
 
     attachInternalListeners() {
         if (!this.form) return;
-        // The parent BaseModal now handles the 'submit' event.
         this.form.elements.quantity.oninput = () => this.renderSerialInputs();
         this.form.elements.has_serial_numbers.onchange = () => this.toggleSerialsContainer();
         this.form.elements.lot_id.onchange = () => this.handleLotChange();
@@ -22,19 +21,23 @@ export class ApplicationModal extends BaseModal {
         this.modalElement.querySelector('.modal-title').textContent = 'Создать партию заявок';
 
         try {
-            const [lotsRes, usersRes, productsRes] = await Promise.all([
+            const currentUser = authManager.getUser();
+            const isMaster = currentUser && currentUser.role === 'master';
+
+            const promises = [
                 api.getLotsWithMasters(),
-                api.getUsersByRole('master'),
+                // Если пользователь - мастер, НЕ запрашиваем список всех мастеров.
+                // Promise.resolve вернет "пустой" успешный результат, не вызывая API.
+                isMaster ? Promise.resolve({ users: [] }) : api.getUsersByRole('master'),
                 api.getProducts('all')
-            ]);
-            
+            ];
+
+            const [lotsRes, usersRes, productsRes] = await Promise.all(promises);
+
             store.setLots(lotsRes.lots || []);
             store.setMasters(usersRes.users || []);
             store.setProducts(productsRes.products || []);
             
-            const currentUser = authManager.getUser();
-            const isMaster = currentUser && currentUser.role === 'master';
-
             this.populateSelect(this.form.elements.lot_id, store.state.lots, { placeholder: 'Выберите участок' });
             this.populateSelect(this.form.elements.master_id, store.state.masters, { textField: 'first_name', placeholder: 'Выберите мастера' });
             
@@ -45,6 +48,7 @@ export class ApplicationModal extends BaseModal {
                 this.populateSelect(this.form.elements.lot_id, masterLots, { placeholder: 'Выберите ваш участок' });
                 if (masterLots.length === 1) {
                     this.form.elements.lot_id.value = masterLots[0].id;
+                    this.handleLotChange(); 
                 }
             }
             
@@ -54,7 +58,9 @@ export class ApplicationModal extends BaseModal {
             now.setHours(now.getHours() + 4);
             this.form.elements.desired_inspection_time.value = now.toISOString().slice(0, 16);
             
-            this.handleLotChange(); // Trigger product loading
+            if (!isMaster) {
+                this.handleLotChange();
+            }
             this.renderSerialInputs();
 
         } catch (error) {
@@ -102,7 +108,6 @@ export class ApplicationModal extends BaseModal {
         }
     }
 
-    // This method is specific to ApplicationModal and correctly overrides the parent's _collectData
     _collectData() {
         const formData = new FormData(this.form);
         const data = Object.fromEntries(formData.entries());

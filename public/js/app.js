@@ -71,40 +71,42 @@ class App {
         await this.updateViewState();
     }
 
-    // Методы для управления модалками дефектов
-    openCreateDiscrepancyModal(applicationId, onSaveCallback) {
+    // NEW/MODIFIED: Centralized methods for handling discrepancy modals
+    async openCreateDiscrepancyModal(applicationId, onSaveCallback) {
+        // Preload users for the responsible person dropdown
+        const usersResponse = await api.getUsers('active');
         this.modals.discrepancy.show({
             mode: 'create',
             applicationId,
+            users: usersResponse.users || [],
             onSave: async (payload) => {
-                const res = await api.createDiscrepancy(payload);
-                if (res.success) {
-                    this.modals.discrepancy.hide();
-                    if (onSaveCallback) await onSaveCallback(res.data);
-                } else {
-                    alert('Ошибка при создании: ' + res.message);
-                }
+                await api.createDiscrepancy(payload);
+                this.modals.discrepancy.hide();
+                if (onSaveCallback) await onSaveCallback();
             }
         });
     }
 
     async openEditDiscrepancyModal(discrepancyId, onSaveCallback) {
-        const res = await api.getDiscrepancyById(discrepancyId);
-        if (res.success) {
+        try {
+            const [discResponse, usersResponse] = await Promise.all([
+                api.getDiscrepancyById(discrepancyId),
+                api.getUsers('active')
+            ]);
+            
             this.modals.discrepancy.show({
                 mode: 'edit',
-                discrepancyData: res.data,
+                discrepancyData: discResponse,
+                users: usersResponse.users || [],
                 onSave: async (payload) => {
-                    // Обработка сохранения изменений (например, срока или описания)
-                    const updateRes = await api.updateDiscrepancy(discrepancyId, payload);
-                    if (updateRes.success) {
-                        this.modals.discrepancy.hide();
-                        if (onSaveCallback) await onSaveCallback(updateRes.data);
-                    } else {
-                        alert('Ошибка при обновлении: ' + updateRes.message);
-                    }
+                    // This onSave is for generic updates by an inspector
+                    await api.updateDiscrepancy(discrepancyId, payload);
+                    this.modals.discrepancy.hide();
+                    if (onSaveCallback) await onSaveCallback();
                 }
             });
+        } catch (error) {
+            alert(`Ошибка при открытии дефекта: ${error.message}`);
         }
     }
 
@@ -172,12 +174,9 @@ class App {
         if (pageModule && pageModule.init) {
             history.pushState(null, '', `#${pageName}`);
             
-            // === МАГИЯ ЗДЕСЬ ===
-            // Клонируем контейнер без дочерних элементов (false), чтобы убить всех слушателей событий
             const newContent = this.pageContent.cloneNode(false);
             this.pageContent.parentNode.replaceChild(newContent, this.pageContent);
-            this.pageContent = newContent; // Обновляем ссылку на актуальный элемент
-            // ===================
+            this.pageContent = newContent;
 
             pageModule.init(this.pageContent, this.modals);
         } else {
