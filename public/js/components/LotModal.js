@@ -30,4 +30,18 @@ export class LotModal extends BaseModal {
             title.textContent = 'Создать участок';
         }
     }
+
+    _collectData() {
+        const data = super._collectData();
+
+        // Преобразуем пустые строки в null для внешних ключей
+        if (data.main_master_id === '') {
+            data.main_master_id = null;
+        }
+        if (data.temp_master_id === '') {
+            data.temp_master_id = null;
+        }
+
+        return data;
+    }
 }

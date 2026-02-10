@@ -13,44 +13,74 @@ export class ApplicationModal extends BaseModal {
         if (!this.form) return;
         this.form.elements.quantity.oninput = () => this.renderSerialInputs();
         this.form.elements.has_serial_numbers.onchange = () => this.toggleSerialsContainer();
-        this.form.elements.lot_id.onchange = () => this.handleLotChange();
+        // Новый основной обработчик
+        this.form.elements.product_id.onchange = () => this.handleProductChange();
     }
 
     async show({ mode = 'create', onSave }) {
         super.show({ onSave });
         this.modalElement.querySelector('.modal-title').textContent = 'Создать партию заявок';
 
+        this.form.elements.lot_id.disabled = true;
+        this.form.elements.master_id.disabled = true;
+
         try {
             const currentUser = authManager.getUser();
             const isMaster = currentUser && currentUser.role === 'master';
 
-            const promises = [
+            // Загружаем базовые данные для всех
+            const [lotsRes, productsRes] = await Promise.all([
                 api.getLotsWithMasters(),
-                // Если пользователь - мастер, НЕ запрашиваем список всех мастеров.
-                // Promise.resolve вернет "пустой" успешный результат, не вызывая API.
-                isMaster ? Promise.resolve({ users: [] }) : api.getUsersByRole('master'),
                 api.getProducts('all')
-            ];
-
-            const [lotsRes, usersRes, productsRes] = await Promise.all(promises);
-
-            store.setLots(lotsRes.lots || []);
-            store.setMasters(usersRes.users || []);
-            store.setProducts(productsRes.products || []);
+            ]);
             
-            this.populateSelect(this.form.elements.lot_id, store.state.lots, { placeholder: 'Выберите участок' });
-            this.populateSelect(this.form.elements.master_id, store.state.masters, { textField: 'first_name', placeholder: 'Выберите мастера' });
+            const allLots = lotsRes.lots || [];
+            const allProducts = productsRes.products || [];
             
-            this.form.elements.master_id.disabled = isMaster;
+            store.setLots(allLots);
+            store.setProducts(allProducts);
+
+            let productsToShow = allProducts;
+            let mastersToShow = [];
+
             if (isMaster) {
-                this.form.elements.master_id.value = currentUser.id;
-                const masterLots = store.state.lots.filter(lot => lot.main_master_id === currentUser.id || lot.temp_master_id === currentUser.id);
-                this.populateSelect(this.form.elements.lot_id, masterLots, { placeholder: 'Выберите ваш участок' });
-                if (masterLots.length === 1) {
-                    this.form.elements.lot_id.value = masterLots[0].id;
-                    this.handleLotChange(); 
-                }
+                // --- Логика для Мастера ---
+                const currentUserId = parseInt(currentUser.id, 10); // Приводим ID к числу
+                const masterLots = allLots
+                    .filter(lot => {
+                        const mainMasterId = parseInt(lot.main_master_id, 10);
+                        const tempMasterId = parseInt(lot.temp_master_id, 10);
+                        return mainMasterId === currentUserId || tempMasterId === currentUserId;
+                    })
+                    .map(lot => lot.id);
+
+                productsToShow = allProducts.filter(p => masterLots.includes(p.lot_id));
+                mastersToShow = [currentUser];
+
+                // --- DEBUG LOGGING START ---
+                console.log('--- ОТЛАДКА ДЛЯ МАСТЕРА ---');
+                console.log('Текущий ID пользователя:', currentUserId);
+                console.log('Все участки, полученные с бэкенда:', JSON.parse(JSON.stringify(allLots)));
+                console.log('ID участков, найденные для этого мастера:', masterLots);
+                console.log('Все изделия, полученные с бэкенда:', JSON.parse(JSON.stringify(allProducts)));
+                console.log('Изделия, отфильтрованные для показа:', JSON.parse(JSON.stringify(productsToShow)));
+                console.log('--- КОНЕЦ ОТЛАДКИ ---');
+                // --- DEBUG LOGGING END ---
+            } else {
+                // --- Логика для Админа/Директора ---
+                const mastersRes = await api.getUsersByRole('master');
+                mastersToShow = mastersRes.users || [];
             }
+            
+            store.setMasters(mastersToShow);
+            
+            this.populateSelect(this.form.elements.product_id, productsToShow, { placeholder: 'Сначала выберите изделие...' });
+            this.populateSelect(this.form.elements.lot_id, allLots, { placeholder: '---' });
+            this.populateSelect(this.form.elements.master_id, store.state.masters, { 
+                valueField: 'id',
+                textField: (user) => `${user.first_name} ${user.last_name || ''}`.trim(), 
+                placeholder: '---' 
+            });
             
             this.form.elements.has_serial_numbers.checked = true;
             this.form.elements.quantity.value = 1;
@@ -58,9 +88,6 @@ export class ApplicationModal extends BaseModal {
             now.setHours(now.getHours() + 4);
             this.form.elements.desired_inspection_time.value = now.toISOString().slice(0, 16);
             
-            if (!isMaster) {
-                this.handleLotChange();
-            }
             this.renderSerialInputs();
 
         } catch (error) {
@@ -69,19 +96,28 @@ export class ApplicationModal extends BaseModal {
         }
     }
 
-    handleLotChange() {
-        const lotId = parseInt(this.form.elements.lot_id.value, 10);
-        const productsForLot = (lotId && store.state.products)
-            ? store.state.products.filter(p => p.lot_id === lotId)
-            : [];
-        
-        this.populateSelect(this.form.elements.product_id, productsForLot, { 
-            placeholder: productsForLot.length > 0 ? 'Выберите изделие' : 'Нет изделий на участке' 
-        });
+    handleProductChange() {
+        const productId = parseInt(this.form.elements.product_id.value, 10);
+        const lotSelect = this.form.elements.lot_id;
+        const masterSelect = this.form.elements.master_id;
 
-        const selectedLot = store.state.lots.find(l => l.id === lotId);
-        if (selectedLot && !this.form.elements.master_id.disabled) {
-            this.form.elements.master_id.value = selectedLot.temp_master_id || selectedLot.main_master_id || '';
+        if (!productId) {
+            lotSelect.value = '';
+            masterSelect.value = '';
+            return;
+        }
+
+        const product = store.state.products.find(p => p.id === productId);
+        if (!product) return;
+
+        const lot = store.state.lots.find(l => l.id === product.lot_id);
+        if (lot) {
+            lotSelect.value = lot.id;
+            // Приоритет временному мастеру, затем основному.
+            masterSelect.value = lot.temp_master_id || lot.main_master_id || '';
+        } else {
+            lotSelect.value = '';
+            masterSelect.value = '';
         }
     }
 
@@ -113,11 +149,22 @@ export class ApplicationModal extends BaseModal {
         const data = Object.fromEntries(formData.entries());
         const quantity = parseInt(data.quantity, 10);
 
+        // Включаем значения из заблокированных полей и проверяем их
+        const lotId = parseInt(this.form.elements.lot_id.value, 10);
+        const masterId = parseInt(this.form.elements.master_id.value, 10);
+        const productId = parseInt(data.product_id, 10);
+
+        // --- ДОБАВЛЕНА ПРОВЕРКА ---
+        if (isNaN(productId) || isNaN(lotId) || isNaN(masterId)) {
+            // Выбрасываем ошибку прямо здесь, чтобы не отправлять неверный запрос
+            throw new Error('Не все обязательные поля (Изделие, Участок, Мастер) заполнены.');
+        }
+
         const payload = {
             production_order_number: data.production_order_number,
-            lot_id: parseInt(data.lot_id, 10),
-            master_id: parseInt(data.master_id, 10),
-            product_id: parseInt(data.product_id, 10),
+            lot_id: lotId,
+            master_id: masterId,
+            product_id: productId,
             drawing_number: data.drawing_number,
             desired_inspection_time: new Date(data.desired_inspection_time).toISOString(),
             quantity: quantity,

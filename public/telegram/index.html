@@ -78,8 +78,10 @@
                 <form id="product-form">
                      <input type="hidden" name="id">
                      <div class="form-group"><label>Название:</label><input type="text" name="name" required></div>
-                     <div class="form-group"><label>Тип:</label><select name="product_type"><option value="finished">Готовое</option><option value="semi_finished">Полуфабрикат</option></select></div>
+                     <div class="form-group"><label>Тип:</label><select name="product_type"><option value="finished">Готовое</option><option value="semi_finished">Полуфабрикат</option><option value="assembly">Узел</option><option value="part">Деталь</option></select></div>
                      <div class="form-group"><label>Участок:</label><select name="lot_id" required></select></div>
+                     <div class="form-group"><label>Контролёр по умолчанию:</label><select name="default_inspector_id"></select></div>
+                     <div class="form-group"><label>Режим контроля:</label><select name="inspection_mode"><option value="lite">🚀 LITE (Доверительный)</option><option value="hard">🛡️ HARD (Строгий)</option></select></div>
                      <div class="form-group"><label>Чек-лист (каждый пункт с новой строки):</label><textarea name="checklist" rows="4"></textarea></div>
                      <button type="submit" class="button">Сохранить</button>
                 </form>
@@ -98,16 +100,16 @@
                             <input type="text" id="app-production-order" name="production_order_number" required>
                         </div>
                         <div class="form-group">
+                            <label>Изделие:</label>
+                            <select id="app-product-id" name="product_id" required></select>
+                        </div>
+                        <div class="form-group">
                             <label>Участок:</label>
-                            <select id="app-lot-id" name="lot_id" required></select>
+                            <select id="app-lot-id" name="lot_id" required disabled></select>
                         </div>
                         <div class="form-group">
                             <label>Мастер:</label>
-                            <select id="app-master-id" name="master_id" required></select>
-                        </div>
-                        <div class="form-group">
-                            <label>Изделие:</label>
-                            <select id="app-product-id" name="product_id" required></select>
+                            <select id="app-master-id" name="master_id" required disabled></select>
                         </div>
                         <div class="form-group">
                             <label>Номер чертежа:</label>
@@ -256,7 +258,7 @@
                     
                     <div id="scenario-details-group" class="form-group" style="display:none;">
                         <label>Детали решения:</label>
-                        <textarea name="details"></textarea>
+                        <textarea name="resolution_card_details" rows="3"></textarea>
                     </div>
 
                     <!-- Поля мастера -->

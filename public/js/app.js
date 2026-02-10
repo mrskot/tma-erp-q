@@ -73,18 +73,41 @@ class App {
 
     // NEW/MODIFIED: Centralized methods for handling discrepancy modals
     async openCreateDiscrepancyModal(applicationId, onSaveCallback) {
-        // Preload users for the responsible person dropdown
-        const usersResponse = await api.getUsers('active');
-        this.modals.discrepancy.show({
-            mode: 'create',
-            applicationId,
-            users: usersResponse.users || [],
-            onSave: async (payload) => {
-                await api.createDiscrepancy(payload);
-                this.modals.discrepancy.hide();
-                if (onSaveCallback) await onSaveCallback();
+        try {
+            // Сначала получаем данные по заявке, чтобы знать, кто мастер
+            const application = await api.getApplicationById(applicationId);
+            if (!application) {
+                alert('Не удалось найти исходную заявку.');
+                return;
             }
-        });
+
+            const currentUser = store.state.currentUser;
+            const isAdminOrDirector = ['admin', 'director'].includes(currentUser.role);
+
+            // Если мы не админ, нам не нужен полный список юзеров.
+            // Нам нужен только мастер этой заявки.
+            // Мы создадим фейковый список, чтобы модалка работала как раньше.
+            const usersForModal = isAdminOrDirector 
+                ? (await api.getUsers('active')).users || []
+                : [{ 
+                    id: application.master_id, 
+                    first_name: application.master_name.split(' ')[0],
+                    last_name: application.master_name.split(' ')[1] || ''
+                }];
+
+            this.modals.discrepancy.show({
+                mode: 'create',
+                applicationData: application, // Передаем всю заявку
+                users: usersForModal,
+                onSave: async (payload) => {
+                    await api.createDiscrepancy(payload);
+                    this.modals.discrepancy.hide();
+                    if (onSaveCallback) await onSaveCallback();
+                }
+            });
+        } catch (error) {
+            alert(`Ошибка при открытии окна дефекта: ${error.message}`);
+        }
     }
 
     async openEditDiscrepancyModal(discrepancyId, onSaveCallback) {

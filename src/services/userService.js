@@ -1,4 +1,5 @@
 const User = require('../models/User');
+const UserAvailability = require('../models/UserAvailability');
 const { AppError } = require('../utils/errorHandler');
 const activityLogService = require('./activityLogService');
 
@@ -50,6 +51,9 @@ class UserService {
     }
 
     const user = await User.create(userData);
+
+    // Создаем запись о доступности для нового пользователя
+    await UserAvailability.create({ user_id: user.id, is_available: true });
 
     await activityLogService.log({
       userId: performer.id,

@@ -1,5 +1,6 @@
 const Application = require('../models/Application');
 const User = require('../models/User');
+const UserAvailability = require('../models/UserAvailability');
 const Product = require('../models/Product');
 const Lot = require('../models/Lot');
 const Discrepancy = require('../models/Discrepancy');
@@ -66,16 +67,32 @@ class ApplicationService {
       }
       const createdApplications = await Application.createBatch(applicationsToCreate);
 
-      // Auto-assign inspector if default is set
-      if (product.default_inspector_id) {
-          const idsToUpdate = createdApplications.map(app => app.id);
-          await Application.instance.db('applications')
-              .whereIn('id', idsToUpdate)
-              .update({
-                  status: 'assigned',
-                  inspector_id: product.default_inspector_id,
-                  assigned_at: new Date()
+      // Auto-assign inspector only if a valid, active, and available default inspector is set
+      const inspectorId = product.default_inspector_id;
+      if (inspectorId && Number.isInteger(inspectorId) && inspectorId > 0) {
+          // Проверяем, активен ли контролёр и доступен ли он
+          const inspector = await User.findById(inspectorId);
+          const availability = await UserAvailability.findByUserId(inspectorId);
+
+          if (inspector && inspector.is_active && availability && availability.is_available) {
+              // Контролёр найден, активен и доступен -> назначаем заявку
+              const idsToUpdate = createdApplications.map(app => app.id);
+              await Application.instance.db('applications')
+                  .whereIn('id', idsToUpdate)
+                  .update({
+                      status: 'assigned',
+                      inspector_id: inspectorId,
+                      assigned_at: new Date()
+                  });
+              
+              await activityLogService.log({
+                  userId: user.id, userRole: user.role, actionType: 'auto_assign',
+                  entityType: 'application', entityId: null, newData: { count: idsToUpdate.length, inspectorId },
+                  description: `Авто-назначение ${idsToUpdate.length} заявок на инспектора #${inspectorId}`
               });
+          }
+          // Если inspector не найден, не активен или не доступен, ничего не делаем. 
+          // Заявка останется со статусом 'new' и попадет в общую очередь.
       }
 
       // Log activity

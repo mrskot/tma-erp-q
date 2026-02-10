@@ -167,7 +167,7 @@ export class ApplicationDetailsModal {
     handleCreateDiscrepancy() {
         this.hide(false); 
         if (window.app && window.app.openCreateDiscrepancyModal) {
-            window.app.openCreateDiscrepancyModal(this.currentApp.id, this.onCloseCallback);
+            window.app.openCreateDiscrepancyModal(this.currentApp.id, () => this.refreshDiscrepancies(this.currentApp.id));
         } else {
             alert('Ошибка: не удалось открыть окно создания несоответствия.');
         }
@@ -176,7 +176,9 @@ export class ApplicationDetailsModal {
     async handleStatusChange(status) {
         try {
             await api.updateApplicationStatus(this.currentApp.id, status);
-            this.hide();
+            // Сначала прячем модалку, потом вызываем колбэк.
+            // hide(true) вызовет onCloseCallback.
+            this.hide(true); 
         } catch (e) {
             alert(`Ошибка обновления статуса: ${e.message}`);
         }
@@ -186,7 +188,7 @@ export class ApplicationDetailsModal {
         if (!confirm('Вы уверены, что хотите отозвать эту заявку? Это действие нельзя отменить.')) return;
         try {
             await api.deleteApplication(this.currentApp.id);
-            this.hide();
+            this.hide(true);
         } catch (e) {
             alert(`Ошибка при отзыве заявки: ${e.message}`);
         }

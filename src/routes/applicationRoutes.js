@@ -36,7 +36,7 @@ router.post(
         body('quantity').isInt({ min: 1 }).withMessage('Количество должно быть не менее 1'),
         body('desired_inspection_time').isISO8601().toDate().withMessage('Неверный формат даты'),
         body('has_serial_numbers').isBoolean().withMessage('Флаг has_serial_numbers должен быть boolean'),
-        body('serial_numbers').isArray().optional()
+        body('serial_data').isArray().optional()
     ],
     ApplicationController.createBatchApplications
 );

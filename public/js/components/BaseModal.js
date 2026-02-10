@@ -15,10 +15,11 @@ export class BaseModal {
     populateSelect(selectEl, items, { valueField = 'id', textField = 'name', placeholder = 'Выберите...' } = {}) {
         if (!selectEl) return;
         selectEl.innerHTML = `<option value="">${placeholder}</option>`;
-        (items || []).forEach(item => { // Defensive check for items
+        (items || []).forEach(item => {
             const option = document.createElement('option');
             option.value = item[valueField];
-            option.textContent = item[textField];
+            // Если textField это функция — вызываем её, если строка — берем ключ
+            option.textContent = typeof textField === 'function' ? textField(item) : item[textField];
             selectEl.appendChild(option);
         });
     }
@@ -42,9 +43,14 @@ export class BaseModal {
     async handleSubmit(e) {
         e.preventDefault();
         if (this.onSave) {
-            const data = this._collectData();
-            // The onSave callback is the API call defined on the page (e.g., users.js)
-            await this.onSave(data);
+            try {
+                const data = this._collectData();
+                // The onSave callback is the API call defined on the page (e.g., users.js)
+                await this.onSave(data);
+            } catch (error) {
+                // Показываем пользователю локальные ошибки валидации (из _collectData)
+                alert(`Ошибка формы: ${error.message}`);
+            }
         }
     }
 }

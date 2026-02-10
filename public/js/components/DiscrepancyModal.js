@@ -1,209 +1,188 @@
-// public/js/components/DiscrepancyModal.js
-
-import { BaseModal } from './BaseModal.js';
 import api from '../api.js';
+import store from '../store.js';
 import authManager from '../auth.js';
-
-/**
- * Templates for Discrepancy Modal UI
- */
-const TPL = {
-    statusMap: { new: 'Новое', assigned: 'В работе', in_progress: 'Доработка', resolved: 'Устранено', closed: 'Закрыто', rejected: 'Отклонено' },
-    statusBadge: (status) => `<span class="status-badge bg-status-${status}">${TPL.statusMap[status] || status.toUpperCase()}</span>`,
-    actionButton: (label, className, id = '') => {
-        const btn = document.createElement('button');
-        btn.type = 'button';
-        btn.className = `button ${className}`;
-        btn.innerHTML = label;
-        if (id) btn.id = id;
-        btn.style.width = '100%';
-        btn.style.marginBottom = '8px';
-        return btn;
-    },
-    closureFields: (scenario) => {
-        const labels = {
-            resolution_card: '🔢 Номер карточки разрешения (КР):',
-            political: '📢 Детали политического решения:',
-            scrap: '🗑️ Причина списания в БРАК:'
-        };
-        if (!labels[scenario]) return '';
-        return `<div class="form-group animate-fade-in"><label>${labels[scenario]}</label><textarea name="details" rows="2" required></textarea></div>`;
-    }
-};
+import { BaseModal } from './BaseModal.js';
 
 export class DiscrepancyModal extends BaseModal {
     constructor() {
         super('discrepancy-modal', 'discrepancy-form');
-        this.title = this.modalElement.querySelector('.modal-title');
-        this.actionsDiv = document.getElementById('discrepancy-actions');
-        this.masterFields = document.getElementById('master-action-fields');
-        this.statusSelect = this.form.elements.status;
-        this.scenarioGroup = document.getElementById('closure-scenario-group');
-        this.scenarioSelect = this.form.elements.closure_scenario;
-        this.detailsContainer = document.getElementById('scenario-details-group');
-        this.currentData = null;
-        this.attachInternalListeners();
+        this.actionsContainer = document.getElementById('discrepancy-actions');
+        this.currentDiscrepancy = null;
+        this.masterActionFields = document.getElementById('master-action-fields');
+        this.closureScenarioGroup = document.getElementById('closure-scenario-group');
+        this.scenarioDetailsGroup = document.getElementById('scenario-details-group');
+        
+        const statusSelect = this.form.elements.status;
+        if (statusSelect) {
+            statusSelect.addEventListener('change', () => this.toggleClosureScenario());
+        }
     }
 
-    attachInternalListeners() {
-        this.statusSelect.onchange = () => this.handleStatusUI();
-        this.scenarioSelect.onchange = () => this.handleScenarioUI();
-    }
-    
-    handleStatusUI() {
-        const isClosed = this.statusSelect.value === 'closed';
-        this.scenarioGroup.style.display = isClosed ? 'block' : 'none';
-        if (!isClosed) { this.scenarioSelect.value = 'fixed'; this.handleScenarioUI(); }
-    }
-
-    handleScenarioUI() {
-        this.detailsContainer.innerHTML = TPL.closureFields(this.scenarioSelect.value);
-    }
-
-    async show({ mode = 'create', discrepancyData = null, applicationId = null, onSave, users = [] }) {
+    show({ mode, discrepancyData = null, applicationData = null, users = [], onSave }) {
         super.show({ onSave });
-        this.currentData = discrepancyData;
-        this.actionsDiv.innerHTML = '';
-        this.detailsContainer.innerHTML = '';
-        this.populateSelect(this.form.elements.responsible_id, users, { textField: 'first_name', placeholder: 'Выберите ответственного' });
+        this.currentMode = mode;
+        this.currentDiscrepancy = discrepancyData;
+        this.currentUser = authManager.getUser();
+        const title = this.modalElement.querySelector('.modal-title');
+
+        this.populateSelect(this.form.elements.responsible_id, users, { 
+            textField: user => `${user.first_name} ${user.last_name || ''}`.trim(),
+            placeholder: 'Выберите ответственного' 
+        });
+
+        // Скрываем все специфичные блоки по умолчанию
+        this.masterActionFields.style.display = 'none';
+        this.closureScenarioGroup.style.display = 'none';
+        this.scenarioDetailsGroup.style.display = 'none';
+
+        // --- НОВЫЙ КОД ---
+        const statusGroup = this.form.elements.status.closest('.form-group');
+        const dueDateGroup = this.form.elements.due_date.closest('.form-group');
+
+        if (mode === 'edit' && discrepancyData) {
+            title.textContent = `Редактировать дефект #${discrepancyData.discrepancy_number}`;
+            this.fillForm(discrepancyData);
+            this.form.elements.application_id.value = discrepancyData.application_id;
+            
+            if (statusGroup) statusGroup.style.display = 'block';
+            if (dueDateGroup) dueDateGroup.style.display = 'block';
+        } else {
+            title.textContent = 'Создать несоответствие';
+            // Скрываем ненужные поля при создании
+            if (statusGroup) statusGroup.style.display = 'none';
+            if (dueDateGroup) dueDateGroup.style.display = 'none';
+
+            if (applicationData) {
+                this.form.elements.application_id.value = applicationData.id;
+                // Автоматически выбираем мастера заявки как ответственного
+                this.form.elements.responsible_id.value = applicationData.master_id;
+                // Отображаем информацию о заявке
+                const appInfo = this.modalElement.querySelector('#disc-app-info');
+                appInfo.querySelector('#disc-app-number-val').textContent = applicationData.application_number;
+                appInfo.style.display = 'block';
+            }
+        }
+
+        const isInspector = this.currentUser.role === 'inspector' || this.currentUser.role === 'admin';
+        const isMaster = this.currentUser.role === 'master' || this.currentUser.role === 'admin';
+
+        this.form.elements.title.disabled = !isInspector && mode === 'edit';
+        this.form.elements.description.disabled = !isInspector && mode === 'edit';
+        this.form.elements.severity.disabled = !isInspector && mode === 'edit';
         
-        mode === 'edit' ? this._setupEditMode(discrepancyData) : this._setupCreateMode(applicationId, discrepancyData?.application_number);
-    }
-    
-    _setupCreateMode(appId, appNumber) {
-        this.title.textContent = '🆕 Новый дефект';
-        this.form.elements.application_id.value = appId || '';
-        document.getElementById('disc-app-number-val').textContent = appNumber || 'Автономно';
-        this.form.elements.status.closest('.form-group').style.display = 'none';
-        this.masterFields.style.display = 'none';
-        const d = new Date(); d.setDate(d.getDate() + 2);
-        this.form.elements.due_date.value = d.toISOString().slice(0, 16);
-        this.form.querySelector('button[type="submit"]').style.display = 'block';
-        this._toggleInputs(false);
+        // Переопределяем отображение статуса на основе прав и режима
+        if (statusGroup) {
+            statusGroup.style.display = (isInspector && mode === 'edit') ? 'block' : 'none';
+        }
+
+        this.renderActions(isMaster, isInspector, discrepancyData ? discrepancyData.status : 'new');
     }
 
-    _setupEditMode(data) {
-        this.title.textContent = `⚠️ Дефект ${data.discrepancy_number}`;
-        const user = authManager.getUser();
-        
+    fillForm(data) {
         Object.keys(data).forEach(key => {
             if (this.form.elements[key]) {
-                 if (key === 'due_date' && data[key]) {
-                    this.form.elements[key].value = new Date(data[key]).toISOString().slice(0, 16);
-                 } else {
-                    this.form.elements[key].value = data[key] || '';
-                 }
+                this.form.elements[key].value = data[key] || '';
             }
         });
-        document.getElementById('disc-app-number-val').textContent = data.application_number || 'Автономно';
-
-        const isInspector = ['admin', 'director', 'inspector'].includes(user.role);
-        this.form.elements.status.closest('.form-group').style.display = isInspector ? 'block' : 'none';
-        this.masterFields.style.display = 'block';
-        this.form.querySelector('button[type="submit"]').style.display = 'none'; // All actions via buttons
-
-        if (user.role === 'master' && !isInspector) {
-            this._toggleInputs(true, ['fix_photo_url', 'special_opinion']);
-            this.renderMasterButtons(data);
-        } else if (isInspector) {
-            this._toggleInputs(false);
-            this.renderInspectorButtons(data);
-        }
-        this.handleStatusUI();
+        this.toggleClosureScenario();
     }
     
-    renderMasterButtons(data) {
-        if (data.status !== 'resolved' && data.status !== 'closed') {
-            const btnLabel = data.inspection_mode === 'lite' ? '✅ Исправлено (Закрыть)' : '🛠️ Устранено (На проверку)';
-            const btn = TPL.actionButton(btnLabel, 'button-success');
-            btn.onclick = () => this.handleMasterAction('resolved');
-            this.actionsDiv.appendChild(btn);
+    renderActions(isMaster, isInspector, status) {
+        this.actionsContainer.innerHTML = '';
+        this.form.querySelector('button[type="submit"]').style.display = 'block';
+
+        if (isMaster && ['assigned', 'in_progress', 'new'].includes(status)) {
+            const btnResolved = this.createActionButton('🛠️ Устранено', 'button-success', () => this.handleMasterAction('resolved'));
+            const btnDispute = this.createActionButton('⚖️ Оспорить', 'button-secondary', () => this.handleMasterAction('disputed'));
+            this.actionsContainer.append(btnResolved, btnDispute);
+            document.getElementById('master-action-fields').style.display = 'block';
+            this.form.querySelector('button[type="submit"]').style.display = 'none';
+        } else {
+            document.getElementById('master-action-fields').style.display = 'none';
         }
-        if (data.status !== 'closed') {
-            const btn = TPL.actionButton('⚖️ Оспорить решение', 'button-danger');
-            btn.onclick = () => this.handleMasterAction('dispute');
-            this.actionsDiv.appendChild(btn);
+        
+        if (isInspector && status === 'resolved') {
+            const btnClose = this.createActionButton('✅ Закрыть (дефект устранен)', 'button-success', () => this.handleInspectorAction('closed'));
+            const btnReopen = this.createActionButton('❌ Вернуть в работу', 'button-danger', () => this.handleInspectorAction('reopen'));
+            this.actionsContainer.append(btnClose, btnReopen);
+            this.form.querySelector('button[type="submit"]').style.display = 'none';
         }
     }
     
-    renderInspectorButtons(data) {
-        if (data.status === 'closed') return;
-        if (data.status === 'resolved' || data.is_disputed) {
-            const btnClose = TPL.actionButton('✅ Принять и Закрыть', 'button-success');
-            btnClose.onclick = () => this.handleInspectorResolution('closed');
-            const btnReturn = TPL.actionButton('🔄 Вернуть на доработку', 'button-danger');
-            btnReturn.onclick = () => this.handleInspectorResolution('in_progress');
-            this.actionsDiv.appendChild(btnClose);
-            this.actionsDiv.appendChild(btnReturn);
-        }
+    createActionButton(text, className, onClick) {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.textContent = text;
+        button.className = `button ${className}`;
+        button.style.width = '100%';
+        button.style.marginBottom = '10px';
+        button.onclick = onClick;
+        return button;
     }
 
     async handleMasterAction(action) {
-        const id = this.currentData.id;
-        const fixPhoto = this.form.elements.fix_photo_url.value.trim();
-        const opinion = this.form.elements.special_opinion.value.trim();
-
-        if (action === 'resolved' && this.currentData.inspection_mode === 'hard' && !fixPhoto) {
-            return alert('В строгом режиме контроля (HARD) необходимо приложить фото устранения!');
-        }
-        if (action === 'dispute' && !opinion) {
-            return alert('Пожалуйста, укажите причину оспаривания в поле "Особое мнение"');
-        }
-
         const payload = {
-            status: 'resolved',
-            fix_photo_url: fixPhoto || null,
-            special_opinion: opinion || null,
-            is_disputed: action === 'dispute'
+            fix_photo_url: this.form.elements.fix_photo_url.value,
+            special_opinion: this.form.elements.special_opinion.value,
         };
 
+        if (action === 'resolved') {
+            payload.status = 'resolved';
+            if (!this.currentDiscrepancy.is_disputed) payload.is_disputed = false;
+        } else if (action === 'disputed') {
+            if (!payload.special_opinion) {
+                alert('Пожалуйста, укажите причину в поле "Особое мнение".');
+                return;
+            }
+            payload.is_disputed = true;
+        }
+
         try {
-            await api.updateDiscrepancyStatus(id, payload);
+            await api.updateDiscrepancyStatus(this.currentDiscrepancy.id, payload);
             this.hide();
-            if (this.onSave) this.onSave();
-        } catch (error) { alert(`Ошибка: ${error.message}`); }
+            if (this.onSave) await this.onSave();
+        } catch (error) {
+            alert(`Ошибка: ${error.message}`);
+        }
+    }
+
+    async handleInspectorAction(action) {
+        const payload = {};
+        if (action === 'closed') {
+            payload.status = 'closed';
+            payload.closure_scenario = 'fixed';
+        } else if (action === 'reopen') {
+            payload.status = 'in_progress';
+        }
+
+        try {
+            await api.updateDiscrepancyStatus(this.currentDiscrepancy.id, payload);
+            this.hide();
+            if (this.onSave) await this.onSave();
+        } catch (error) {
+            alert(`Ошибка: ${error.message}`);
+        }
     }
     
-    async handleInspectorResolution(newStatus) {
-        const id = this.currentData.id;
-        const scenario = this.scenarioSelect.value;
-        const details = this.detailsContainer.querySelector('textarea')?.value.trim() || '';
+    _collectData() {
+        const data = super._collectData();
 
-        if (newStatus === 'closed') {
-            if (!scenario) return alert('Пожалуйста, выберите сценарий закрытия!');
-            if (['resolution_card', 'scrap', 'political'].includes(scenario) && !details) {
-                return alert('Пожалуйста, заполните детали для выбранного сценария!');
-            }
+        // Очищаем пустые ID, чтобы бэкенд не ругался
+        if (data.application_id === '') data.application_id = null;
+        if (data.responsible_id === '') data.responsible_id = null;
+
+        // --- НОВОЕ ИСПРАВЛЕНИЕ ---
+        // Если ID пустой (при создании), его нужно полностью удалить из объекта
+        if (data.id === '' || data.id === null || data.id === undefined) {
+            delete data.id;
         }
-        
-        const payload = {
-            status: newStatus,
-            closure_scenario: newStatus === 'closed' ? scenario : null,
-            resolution_card_details: scenario === 'resolution_card' ? details : null,
-            scrap_reason: scenario === 'scrap' ? details : null,
-            political_decision_details: scenario === 'political' ? details : null,
-            is_disputed: false // Inspector's action removes dispute flag
-        };
-        
-        try {
-            await api.updateDiscrepancyStatus(id, payload);
-            this.hide();
-            if (this.onSave) this.onSave();
-        } catch (error) { alert(`Ошибка: ${error.message}`); }
-    }
 
-    _toggleInputs(disabled, except = []) {
-        this.form.querySelectorAll('input, select, textarea').forEach(input => {
-            input.disabled = except.includes(input.name) ? false : disabled;
-        });
-    }
-
-    async handleSubmit(e) {
-        e.preventDefault(); // Called by BaseModal
-        if (this.onSave) {
-            const data = this._collectData();
-            data.id = this.currentData?.id; // Ensure ID is passed for updates
-            await this.onSave(data);
+        // При создании несоответствия мы не должны отправлять данные о сценариях закрытия
+        if (this.currentMode === 'create') {
+            delete data.closure_scenario;
+            delete data.resolution_card_details;
         }
+
+        return data;
     }
 }

@@ -25,8 +25,6 @@ const createDiscrepancyValidation = [
   body('inspector_id')
     .optional()
     .isInt().withMessage('ID инспектора должен быть числом'),
-  body('detected_at')
-    .notEmpty().withMessage('Дата обнаружения обязательна'),
 ];
 
 const updateDiscrepancyValidation = [

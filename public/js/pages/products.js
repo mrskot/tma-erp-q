@@ -7,12 +7,14 @@ let state = { filter: 'active' };
 
 async function loadDataAndUpdateView() {
     try {
-        const [productsRes, lotsRes] = await Promise.all([
+        const [productsRes, lotsRes, inspectorsRes] = await Promise.all([
             api.getProducts('all'),
-            api.getLots('active')
+            api.getLots('active'),
+            api.getUsersByRole('inspector') // <-- ДОБАВЛЕНО
         ]);
         store.setProducts(productsRes.products || []);
         store.setLots(lotsRes.lots || []);
+        store.setInspectors(inspectorsRes.users || []); // <-- ДОБАВЛЕНО
         render();
     } catch (error) {
         document.getElementById('page-content').innerHTML = `<p class="error-message">Ошибка загрузки: ${error.message}</p>`;
@@ -29,6 +31,10 @@ function render() {
             : `<button class="button-action btn-edit" data-product-id="${product.id}" data-action="edit">✏️ Правка</button>
                <button class="button-action btn-delete" data-product-id="${product.id}" data-action="delete">🗑️ Удалить</button>`;
         const lot = store.getLotById(product.lot_id);
+        // <-- НАЧАЛО ИЗМЕНЕНИЙ
+        const inspector = store.state.inspectors.find(i => i.id === product.default_inspector_id);
+        const inspectorName = inspector ? `${inspector.first_name} ${inspector.last_name || ''}`.trim() : '—';
+        // <-- КОНЕЦ ИЗМЕНЕНИЙ
         
         return `
             <div class="mobile-card ${isInactive ? 'inactive' : ''}" data-product-id="${product.id}">
@@ -39,7 +45,10 @@ function render() {
                     </span>
                 </div>
                 <div class="card-main-info">${product.name}</div>
-                <div class="card-sub-info">${lot?.name || '—'}</div>
+                <div class="card-sub-info">
+                    <div>Участок: ${lot?.name || '—'}</div>
+                    <div>Контролёр: ${inspectorName}</div>
+                </div>
                 <div class="card-actions">
                     ${actionButtons}
                 </div>
@@ -68,9 +77,7 @@ function handlePageClick(event) {
     const button = event.target.closest('button[data-action]');
     if (!button) return;
     const action = button.dataset.action;
-    // FIX: Updated selector from 'tr' to '.mobile-card'
     const productId = button.closest('.mobile-card')?.dataset.productId || button.dataset.productId;
-    // Helper for create/update actions
     const onSave = async (apiCall) => {
         try {
             await apiCall();
@@ -80,11 +87,9 @@ function handlePageClick(event) {
             alert(`Ошибка сохранения: ${error.message}`);
         }
     };
-    // This function encapsulates the business logic for handling checklist data
     const handleSave = (data) => {
-        // Business logic: transform checklist from textarea string to array
         if (data.checklist) {
-            data.checklist = data.checklist.split('\n').map(item => item.trim()).filter(item => item);
+            data.checklist = data.checklist.split('\n').map(item => ({ task: item.trim() })).filter(item => item.task);
         }
         if (action === 'create') {
             onSave(() => api.createProduct(data));
@@ -97,7 +102,7 @@ function handlePageClick(event) {
             productModal.show({
                 mode: 'create',
                 lots: store.state.lots,
-                inspectors: store.state.inspectors, // Assuming inspectors are loaded in store
+                inspectors: store.state.inspectors, // <-- ПЕРЕДАЕМ ИНСПЕКТОРОВ
                 onSave: handleSave
             });
             break;
@@ -105,7 +110,7 @@ function handlePageClick(event) {
             productModal.show({
                 mode: 'edit',
                 lots: store.state.lots,
-                inspectors: store.state.inspectors,
+                inspectors: store.state.inspectors, // <-- ПЕРЕДАЕМ ИНСПЕКТОРОВ
                 productData: store.getProductById(productId),
                 onSave: handleSave
             });

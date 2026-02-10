@@ -133,8 +133,8 @@ export async function init(container, modals) {
             ]);
             
             container.innerHTML = renderAdminDashboard({
-                applications: appStats.data,
-                discrepancies: discStats.data,
+                applications: appStats,
+                discrepancies: discStats
             });
             const refreshBtn = document.getElementById('refresh-dashboard');
             if (refreshBtn) refreshBtn.onclick = () => init(container, modals);

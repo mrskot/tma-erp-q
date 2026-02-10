@@ -29,7 +29,10 @@ class Lot extends BaseModel {
       query.where('l.code', filters.code);
     }
     if (withMasters) {
+      // Добавляем к выборке 'l.*' имена мастеров, не затирая исходные поля
       query.select(
+        'l.main_master_id', 
+        'l.temp_master_id',
         this.db.raw("m.first_name || ' ' || m.last_name as main_master_name"),
         this.db.raw("t.first_name || ' ' || t.last_name as temp_master_name")
       )
@@ -50,6 +53,8 @@ class Lot extends BaseModel {
       query.where('l.is_active', true);
     }
       query.select(
+        'l.main_master_id',
+        'l.temp_master_id',
         this.db.raw("m.first_name || ' ' || m.last_name as main_master_name"),
         this.db.raw("t.first_name || ' ' || t.last_name as temp_master_name")
       )

@@ -401,9 +401,18 @@ exports.seed = async function(knex) {
     },
   ]);
 
+  // 8. Записи о доступности пользователей (по умолчанию все доступны)
+  const userIds = users.map(u => typeof u === 'object' ? u.id : u);
+  const availabilityData = userIds.map(userId => ({
+    user_id: userId,
+    is_available: true,
+  }));
+  await knex('user_availability').insert(availabilityData);
+
   console.log('✅ Тестовые данные успешно добавлены');
   console.log(`👥 Пользователей: ${users.length}`);
   console.log(`🏭 Участков: ${lots.length}`);
   console.log(`📦 Типов изделий: ${products.length}`);
   console.log(`📝 Заявок: ${applications.length}`);
+  console.log(`✅ Записи о доступности созданы: ${availabilityData.length}`);
 };
